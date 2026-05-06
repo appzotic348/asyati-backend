@@ -9,7 +9,8 @@ import {
   CustomerAddress,
   CustomerAddressDocument,
 } from './schemas/customer-address.schema';
-import { CreateAddressDto, UpdateAddressDto } from './dto/customer-address.dto';
+import { CreateAddressDto, UpdateAddressDto, AddressFilterDto } from './dto/customer-address.dto';
+import { paginate, PaginatedResult, PaginationDto } from '../../common/pagination';
 
 const MAX_ADDRESSES = 5;
 
@@ -51,18 +52,34 @@ export class CustomerAddressService {
 
   // ─── GET ALL ──────────────────────────────────────────────────────────────
 
-  async findAll(customerId: string): Promise<CustomerAddressDocument[]> {
-    return this.addressModel
-      .find({ customerId: new Types.ObjectId(customerId), isDeleted: false })
-      .sort({ isDefault: -1, createdAt: -1 }) 
-      .exec();
+  async findAll(
+    customerId:  string,
+    pagination:  PaginationDto,
+    filters:     AddressFilterDto,
+  ): Promise<PaginatedResult<CustomerAddressDocument>> {
+    const query: Record<string, any> = {
+      customerId: new Types.ObjectId(customerId),
+      isDeleted:  false,
+    };
+
+    if (filters.city)      query.city      = { $regex: filters.city,  $options: 'i' };
+    if (filters.state)     query.state     = { $regex: filters.state, $options: 'i' };
+    if (filters.pincode)   query.pincode   = filters.pincode;
+    if (filters.country)   query.country   = { $regex: filters.country, $options: 'i' };
+
+    return paginate<CustomerAddressDocument>(
+      this.addressModel,
+      query,
+      pagination,
+      { isDefault: -1, createdAt: -1 },
+    );
   }
 
   // ─── GET ONE ──────────────────────────────────────────────────────────────
 
   async findOne(
     customerId: string,
-    addressId: string,
+    addressId:  string,
   ): Promise<CustomerAddressDocument> {
     return this.getOwnedAddress(customerId, addressId);
   }
@@ -71,10 +88,10 @@ export class CustomerAddressService {
 
   async update(
     customerId: string,
-    addressId: string,
-    dto: UpdateAddressDto,
+    addressId:  string,
+    dto:        UpdateAddressDto,
   ): Promise<CustomerAddressDocument> {
-    await this.getOwnedAddress(customerId, addressId); 
+    await this.getOwnedAddress(customerId, addressId);
 
     if (dto.isDefault) await this.clearDefault(customerId);
 

@@ -1,8 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean, IsNotEmpty, IsOptional,
-  IsString, Matches,
+  IsString, Matches, 
 } from 'class-validator';
+import { PaginationDto } from '../../../common/pagination';
 
 export class CreateAddressDto {
   @ApiProperty({ example: 'Virat' })
@@ -58,7 +59,7 @@ export class UpdateAddressDto {
   @IsOptional() @IsString() @IsNotEmpty()
   lastName?: string;
 
-  @ApiPropertyOptional({ example: '42, MG Road, Koramangala' })
+  @ApiPropertyOptional({ example: '42, MG Road' })
   @IsOptional() @IsString() @IsNotEmpty()
   address?: string;
 
@@ -83,4 +84,35 @@ export class UpdateAddressDto {
   @ApiPropertyOptional({ example: true })
   @IsOptional() @IsBoolean()
   isDefault?: boolean;
+}
+
+export class AddressFilterDto extends PaginationDto {
+  @ApiPropertyOptional({ example: 'Bengaluru', description: 'Filter by city (partial match).' })
+  @IsOptional() @IsString()
+  city?: string;
+
+  @ApiPropertyOptional({ example: 'Karnataka', description: 'Filter by state (partial match).' })
+  @IsOptional() @IsString()
+  state?: string;
+
+  @ApiPropertyOptional({ example: '560034', description: 'Filter by exact pincode.' })
+  @IsOptional() @IsString()
+  pincode?: string;
+
+  @ApiPropertyOptional({ example: 'India', description: 'Filter by country (partial match).' })
+  @IsOptional() @IsString()
+  country?: string;
+
+  // @ApiPropertyOptional({
+  //   example: 'true',
+  //   type: 'string',
+  //   description: 'Filter by default address. Send "true" or "false".',
+  // })
+  // @IsOptional()
+  // @Transform(({ value }) => {
+  //   if (value === 'true')  return true;
+  //   if (value === 'false') return false;
+  //   return undefined;
+  // })
+  // isDefault?: boolean;
 }

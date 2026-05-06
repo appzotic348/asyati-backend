@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cashfree Payment Test</title>
+
+  <!-- Cashfree JS SDK — sandbox mode -->
+  <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 560px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.10);
+      padding: 32px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffc107;
+      border-radius: 20px;
+      padding: 2px 8px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #444;
+      margin-bottom: 6px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #222;
+      outline: none;
+      transition: border 0.2s;
+      margin-bottom: 16px;
+      font-family: inherit;
+    }
+
+    input:focus, textarea:focus {
+      border-color: #7c3aed;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: #fff;
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #059669, #047857);
+      color: #fff;
+    }
+
+    .btn-outline {
+      background: #fff;
+      color: #7c3aed;
+      border: 2px solid #7c3aed;
+      margin-top: 10px;
+    }
+
+    /* Flow steps */
+    .steps {
+      display: flex;
+      gap: 0;
+      margin-bottom: 24px;
+    }
+
+    .step {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      color: #999;
+      position: relative;
+    }
+
+    .step::after {
+      content: '';
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      width: 100%;
+      height: 2px;
+      background: #e0e0e0;
+      z-index: 0;
+    }
+
+    .step:last-child::after { display: none; }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #e0e0e0;
+      color: #999;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 6px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step.active .step-num {
+      background: #7c3aed;
+      color: #fff;
+    }
+
+    .step.done .step-num {
+      background: #059669;
+      color: #fff;
+    }
+
+    /* Response box */
+    .response-box {
+      background: #1e1e2e;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 12px;
+      overflow: auto;
+      max-height: 320px;
+    }
+
+    .response-box pre {
+      color: #a9dc76;
+      font-size: 13px;
+      font-family: 'Courier New', monospace;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .status-tag {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    .tag-success { background: #d1fae5; color: #065f46; }
+    .tag-error   { background: #fee2e2; color: #991b1b; }
+    .tag-pending { background: #fef3c7; color: #92400e; }
+    .tag-info    { background: #ede9fe; color: #4c1d95; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #f0f0f0;
+      margin: 20px 0;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .info-row span:first-child { color: #666; }
+    .info-row span:last-child  { font-weight: 600; color: #222; word-break: break-all; text-align: right; max-width: 60%; }
+
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
+    .alert-info    { background: #ede9fe; color: #4c1d95; border: 1px solid #c4b5fd; }
+    .alert-success { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+    .alert-error   { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #ffffff44;
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div style="text-align:center; margin-bottom:24px;">
+    <h1 style="font-size:24px; font-weight:800; color:#1a1a2e;">💳 Cashfree Payment Test</h1>
+    <p style="color:#666; font-size:14px; margin-top:6px;">Sandbox / Test Environment</p>
+  </div>
+
+  <!-- Flow Steps -->
+  <div class="steps">
+    <div class="step active" id="step1">
+      <div class="step-num">1</div>
+      Session ID
+    </div>
+    <div class="step" id="step2">
+      <div class="step-num">2</div>
+      Pay
+    </div>
+    <div class="step" id="step3">
+      <div class="step-num">3</div>
+      Verify
+    </div>
+  </div>
+
+  <!-- STEP 1: Enter Payment Session ID -->
+  <div class="card" id="card-step1">
+    <div class="card-title">
+      Step 1 — Enter Payment Session ID
+      <span class="badge">TEST MODE</span>
+    </div>
+
+    <div class="alert alert-info">
+      📌 Get <code>paymentSessionId</code> from <code>POST /customer/payment/initiate</code> API
+    </div>
+
+    <label>Payment Session ID</label>
+    <input
+      type="text"
+      id="sessionId"
+      placeholder="session_xxxxxxxxxxxxxxxxxxxx"
+    />
+
+    <label>Order ID (cfOrderId / orderNumber)</label>
+    <input
+      type="text"
+      id="orderId"
+      placeholder="ORD-20240512-00042"
+    />
+
+    <label>Amount (display only)</label>
+    <input
+      type="text"
+      id="amount"
+      placeholder="e.g. 3777.90"
+    />
+
+    <button class="btn btn-primary" onclick="startPayment()">
+      🚀 Open Cashfree Checkout
+    </button>
+  </div>
+
+  <!-- STEP 2: Payment in progress -->
+  <div class="card hidden" id="card-step2">
+    <div class="card-title">Step 2 — Complete Payment</div>
+    <div class="alert alert-info">
+      ⏳ Cashfree checkout has been opened. Complete the payment in the popup/redirect.<br/><br/>
+      After payment is done, click <strong>Verify Payment</strong> below.
+    </div>
+    <div id="session-info">
+      <div class="info-row">
+        <span>Session ID</span>
+        <span id="display-session">—</span>
+      </div>
+      <div class="info-row">
+        <span>Order ID</span>
+        <span id="display-order">—</span>
+      </div>
+      <div class="info-row">
+        <span>Amount</span>
+        <span id="display-amount">—</span>
+      </div>
+    </div>
+    <hr class="divider" />
+    <button class="btn btn-success" onclick="verifyPayment()">
+      ✅ Verify Payment
+    </button>
+    <button class="btn btn-outline" onclick="resetFlow()">
+      ← Start Over
+    </button>
+  </div>
+
+  <!-- STEP 3: Result -->
+  <div class="card hidden" id="card-step3">
+    <div class="card-title">
+      Step 3 — Payment Result
+      <span id="result-tag" class="status-tag"></span>
+    </div>
+
+    <div id="result-alert" class="alert"></div>
+
+    <div class="info-row">
+      <span>Order ID</span>
+      <span id="result-order">—</span>
+    </div>
+    <div class="info-row">
+      <span>Payment Status</span>
+      <span id="result-status">—</span>
+    </div>
+    <div class="info-row">
+      <span>Order Status</span>
+      <span id="result-order-status">—</span>
+    </div>
+    <div class="info-row">
+      <span>Message</span>
+      <span id="result-message">—</span>
+    </div>
+
+    <hr class="divider" />
+
+    <label style="margin-bottom:8px;">Raw API Response</label>
+    <div class="response-box">
+      <pre id="raw-response">—</pre>
+    </div>
+
+    <button class="btn btn-outline" onclick="resetFlow()" style="margin-top:16px;">
+      ← Test Another Payment
+    </button>
+  </div>
+
+  <!-- Webhook Log -->
+  <div class="card">
+    <div class="card-title">📡 Webhook Event Log</div>
+    <p style="font-size:13px; color:#666; margin-bottom:12px;">
+      Events received at <code>/customer/payment/webhook</code> will appear here after you click Simulate.
+    </p>
+    <button class="btn btn-outline" style="margin-bottom:12px;" onclick="simulateWebhook()">
+      🔔 Simulate Webhook (test)
+    </button>
+    <div class="response-box">
+      <pre id="webhook-log">No webhook events yet...</pre>
+    </div>
+  </div>
+
+  <!-- API Quick Reference -->
+  <div class="card">
+    <div class="card-title">📋 API Reference</div>
+    <div style="font-size:13px; color:#444; line-height:1.8;">
+      <div><code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">POST</code> &nbsp;<strong>/customer/checkout</strong> — Place order</div>
+      <div><code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">POST</code> &nbsp;<strong>/customer/payment/initiate</strong> — Get session ID</div>
+      <div><code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">GET</code> &nbsp;&nbsp;<strong>/customer/payment/verify/:cfOrderId</strong> — Verify after payment</div>
+      <div><code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">POST</code> &nbsp;<strong>/customer/payment/webhook</strong> — Cashfree webhook</div>
+      <div><code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">GET</code> &nbsp;&nbsp;<strong>/customer/payment/status/:orderId</strong> — Check status</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── Cashfree SDK init ─────────────────────────────────────────────────────
+  const cashfree = Cashfree({ mode: 'sandbox' });
+
+  let currentOrderId = '';
+
+  // ── Step helpers ──────────────────────────────────────────────────────────
+
+  function setStep(n) {
+    [1, 2, 3].forEach(i => {
+      const el = document.getElementById(`step${i}`);
+      el.classList.remove('active', 'done');
+      if (i < n)  el.classList.add('done');
+      if (i === n) el.classList.add('active');
+    });
+    document.getElementById('card-step1').classList.toggle('hidden', n !== 1);
+    document.getElementById('card-step2').classList.toggle('hidden', n !== 2);
+    document.getElementById('card-step3').classList.toggle('hidden', n !== 3);
+  }
+
+  // ── Start Payment ─────────────────────────────────────────────────────────
+
+  async function startPayment() {
+    const sessionId = document.getElementById('sessionId').value.trim();
+    const orderId   = document.getElementById('orderId').value.trim();
+    const amount    = document.getElementById('amount').value.trim();
+
+    if (!sessionId) { alert('Please enter a Payment Session ID'); return; }
+    if (!orderId)   { alert('Please enter an Order ID'); return; }
+
+    currentOrderId = orderId;
+
+    // Show step 2 info
+    document.getElementById('display-session').textContent = sessionId.substring(0, 30) + '...';
+    document.getElementById('display-order').textContent   = orderId;
+    document.getElementById('display-amount').textContent  = amount ? `₹${amount}` : '—';
+
+    setStep(2);
+
+    // Open Cashfree checkout
+    try {
+      const result = await cashfree.checkout({
+        paymentSessionId: sessionId,
+        redirectTarget:   '_modal',   // '_modal' | '_self' | '_blank'
+      });
+
+      console.log('Cashfree checkout result:', result);
+
+      // After modal closes, auto-verify
+      if (result?.paymentDetails || result?.error) {
+        await verifyPayment();
+      }
+
+    } catch (err) {
+      console.error('Cashfree SDK error:', err);
+      showResult('error', 'SDK Error', { error: err?.message ?? 'Unknown SDK error' });
+    }
+  }
+
+  // ── Verify Payment ────────────────────────────────────────────────────────
+
+  async function verifyPayment() {
+    if (!currentOrderId) {
+      alert('No order ID found. Please start over.');
+      return;
+    }
+
+    setStep(3);
+
+    const btn = document.querySelector('#card-step2 .btn-success');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Verifying...';
+    }
+
+    try {
+      const res  = await fetch(`/customer/payment/verify/${currentOrderId}`);
+      const json = await res.json();
+
+      console.log('Verify response:', json);
+
+      const status  = json?.data?.status  ?? json?.status  ?? 'UNKNOWN';
+      const message = json?.data?.message ?? json?.message ?? '';
+      const order   = json?.data?.order   ?? null;
+
+      document.getElementById('result-order').textContent        = currentOrderId;
+      document.getElementById('result-status').textContent       = order?.paymentStatus ?? status;
+      document.getElementById('result-order-status').textContent = order?.orderStatus   ?? '—';
+      document.getElementById('result-message').textContent      = message;
+      document.getElementById('raw-response').textContent        = JSON.stringify(json, null, 2);
+
+      if (status === 'PAID') {
+        showResultTag('success', '✅ PAID');
+        showResultAlert('success', '🎉 Payment successful! Your order has been confirmed.');
+      } else if (status === 'PENDING') {
+        showResultTag('pending', '⏳ PENDING');
+        showResultAlert('pending', '⏳ Payment is still pending. Please wait or try again.');
+      } else {
+        showResultTag('error', `❌ ${status}`);
+        showResultAlert('error', `Payment was not successful. Status: ${status}`);
+      }
+
+    } catch (err) {
+      console.error('Verify error:', err);
+      document.getElementById('raw-response').textContent = JSON.stringify({ error: err.message }, null, 2);
+      showResultTag('error', '❌ ERROR');
+      showResultAlert('error', 'Failed to verify payment. Check console.');
+    }
+  }
+
+  function showResultTag(type, text) {
+    const tag = document.getElementById('result-tag');
+    tag.textContent  = text;
+    tag.className    = `status-tag tag-${type}`;
+  }
+
+  function showResultAlert(type, text) {
+    const alert = document.getElementById('result-alert');
+    alert.textContent = text;
+    alert.className   = `alert alert-${type}`;
+  }
+
+  // ── Simulate Webhook ──────────────────────────────────────────────────────
+
+  async function simulateWebhook() {
+    const log = document.getElementById('webhook-log');
+    log.textContent = '⏳ Sending test webhook to Cashfree dashboard...\n\nPlease click the "Test" button on your webhook in the Cashfree Dashboard → Developers → Webhooks.\n\nCashfree will send a real test payload to:\n/customer/payment/webhook\n\nCheck your NestJS terminal for the webhook log output.';
+  }
+
+  // ── Reset ─────────────────────────────────────────────────────────────────
+
+  function resetFlow() {
+    currentOrderId = '';
+    document.getElementById('sessionId').value = '';
+    document.getElementById('orderId').value   = '';
+    document.getElementById('amount').value    = '';
+    setStep(1);
+  }
+
+  // ── Auto-fill from URL params (after redirect) ────────────────────────────
+  // Cashfree return_url includes ?order_id=ORD-xxx
+  window.addEventListener('DOMContentLoaded', () => {
+    const params  = new URLSearchParams(window.location.search);
+    const orderId = params.get('order_id');
+    if (orderId) {
+      currentOrderId = orderId;
+      document.getElementById('orderId').value = orderId;
+      // Auto verify if redirected back
+      setStep(2);
+      document.getElementById('display-order').textContent = orderId;
+      verifyPayment();
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,13 +1,17 @@
 import {
   Body, Controller, Delete, Get,
-  Param, Patch, Post, UseGuards,
+  Param, Patch, Post, Query, UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth, ApiOperation, ApiParam,
   ApiResponse, ApiTags,
 } from '@nestjs/swagger';
 import { CustomerAddressService } from './customer-address.service';
-import { CreateAddressDto, UpdateAddressDto } from './dto/customer-address.dto';
+import {
+  AddressFilterDto,
+  CreateAddressDto,
+  UpdateAddressDto,
+} from './dto/customer-address.dto';
 import { CustomerJwtGuard } from '../../customer-auth/guards/customer-jwt.guard';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 import { CustomerDocument } from '../../customers/schemas/customer.schema';
@@ -20,26 +24,16 @@ import { successResponse } from '../../common/response';
 export class CustomerAddressController {
   constructor(private readonly addressService: CustomerAddressService) {}
 
-  // ── CREATE ────────────────────────────────────────────────────────────────
-
   @Post()
-  @ApiOperation({
-    summary: 'Create a new address',
-    description:
-      'Saves a new delivery address for the logged-in customer.\n\n' +
-      'Max **5 addresses** per customer.\n\n' +
-      'The very first address is automatically set as default.\n\n' +
-      'Send `"isDefault": true` to override any existing default.',
-  })
+  @ApiOperation({ summary: 'Create a new address' })
   @ApiResponse({ status: 201, description: 'Address created.' })
-  @ApiResponse({ status: 400, description: 'Max 5 addresses reached or invalid pincode.' })
+  @ApiResponse({ status: 400, description: 'Max 5 addresses or invalid pincode.' })
   async create(
     @GetUser() customer: CustomerDocument,
     @Body() dto: CreateAddressDto,
   ) {
     const address = await this.addressService.create(
-      (customer as any)._id.toString(),
-      dto,
+      (customer as any)._id.toString(), dto,
     );
     return successResponse(address, { message: 'Address created successfully' });
   }
@@ -51,17 +45,21 @@ export class CustomerAddressController {
     summary: 'Get all saved addresses',
     description:
       'Returns all active addresses for the customer.\n\n' +
-      'Default address is always first in the list.',
+      '**Filters:** `city`, `state`, `pincode`, `country`\n\n' +
+      '**Pagination:** `page` + `limit`. Omit both to get all.',
   })
   @ApiResponse({ status: 200, description: 'Address list.' })
-  async findAll(@GetUser() customer: CustomerDocument) {
-    const addresses = await this.addressService.findAll(
+  async findAll(
+    @GetUser() customer: CustomerDocument,
+    @Query() filters: AddressFilterDto,
+  ) {
+    const result = await this.addressService.findAll(
       (customer as any)._id.toString(),
+      { page: filters.page, limit: filters.limit },
+      filters,
     );
-    return successResponse(addresses);
+    return successResponse(result.data, { meta: result.meta as any });
   }
-
-  // ── GET ONE ───────────────────────────────────────────────────────────────
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a single address by ID' })
@@ -73,8 +71,7 @@ export class CustomerAddressController {
     @Param('id') id: string,
   ) {
     const address = await this.addressService.findOne(
-      (customer as any)._id.toString(),
-      id,
+      (customer as any)._id.toString(), id,
     );
     return successResponse(address);
   }
@@ -82,12 +79,7 @@ export class CustomerAddressController {
   // ── UPDATE ────────────────────────────────────────────────────────────────
 
   @Patch(':id')
-  @ApiOperation({
-    summary: 'Update an address',
-    description:
-      'All fields are optional.\n\n' +
-      'Send `"isDefault": true` to make this the default address.',
-  })
+  @ApiOperation({ summary: 'Update an address' })
   @ApiParam({ name: 'id', example: '665f1a2b3c4d5e6f7a8b9c0d' })
   @ApiResponse({ status: 200, description: 'Address updated.' })
   @ApiResponse({ status: 404, description: 'Address not found.' })
@@ -97,43 +89,29 @@ export class CustomerAddressController {
     @Body() dto: UpdateAddressDto,
   ) {
     const address = await this.addressService.update(
-      (customer as any)._id.toString(),
-      id,
-      dto,
+      (customer as any)._id.toString(), id, dto,
     );
     return successResponse(address, { message: 'Address updated successfully' });
   }
 
-  // ── SET DEFAULT ───────────────────────────────────────────────────────────
-
   @Patch(':id/set-default')
-  @ApiOperation({
-    summary: 'Set address as default',
-    description: 'Marks this address as default and unsets all others.',
-  })
+  @ApiOperation({ summary: 'Set address as default' })
   @ApiParam({ name: 'id', example: '665f1a2b3c4d5e6f7a8b9c0d' })
-  @ApiResponse({ status: 200, description: 'Default address updated.' })
-  @ApiResponse({ status: 404, description: 'Address not found.' })
+  @ApiResponse({ status: 200, description: 'Default updated.' })
   async setDefault(
     @GetUser() customer: CustomerDocument,
     @Param('id') id: string,
   ) {
     const address = await this.addressService.setDefault(
-      (customer as any)._id.toString(),
-      id,
+      (customer as any)._id.toString(), id,
     );
     return successResponse(address, { message: 'Default address updated' });
   }
 
-  // ── DELETE ────────────────────────────────────────────────────────────────
-
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete an address',
-    description:
-      'Soft deletes the address.\n\n' +
-      'If the deleted address was the default, the most recently created ' +
-      'remaining address is automatically promoted to default.',
+    description: 'Soft deletes. If default, next address is promoted automatically.',
   })
   @ApiParam({ name: 'id', example: '665f1a2b3c4d5e6f7a8b9c0d' })
   @ApiResponse({ status: 200, description: 'Address deleted.' })
@@ -142,10 +120,7 @@ export class CustomerAddressController {
     @GetUser() customer: CustomerDocument,
     @Param('id') id: string,
   ) {
-    await this.addressService.remove(
-      (customer as any)._id.toString(),
-      id,
-    );
+    await this.addressService.remove((customer as any)._id.toString(), id);
     return successResponse(null, { message: 'Address deleted successfully' });
   }
 }

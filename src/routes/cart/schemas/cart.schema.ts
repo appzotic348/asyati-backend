@@ -10,7 +10,7 @@ export class CartItem {
   @Prop({ required: true, min: 1 })
   quantity: number;
 
-  @Prop({ required: true })
+  @Prop({ required: true }) 
   priceAtAdd: number;
 
   @Prop({ required: true })
@@ -42,7 +42,7 @@ export class CartItem {
 
   @Prop({ required: true })
   itemSellingTotal: number;
-
+  
   @Prop({ required: true })
   itemDiscountTotal: number;
 }
@@ -58,13 +58,17 @@ export class Cart {
   @Prop({ type: [Object], default: [] })
   items: CartItem[];
 
-  @Prop({ default: 0 }) mrpTotal: number;
-  @Prop({ default: 0 }) subTotal: number;
-  @Prop({ default: 0 }) totalDiscount: number;
+  // ── Totals ────────────────────────────────────────────────────────────────
+  @Prop({ default: 0 }) mrpTotal:        number;
+  @Prop({ default: 0 }) subTotal:        number;
+  @Prop({ default: 0 }) totalDiscount:   number;
   @Prop({ default: 0 }) discountPercent: number;
-  @Prop({ default: 0 }) orderTotal: number;
-  @Prop({ default: 0 }) itemCount: number;
-  @Prop({ default: 0 }) totalQuantity: number;
+  @Prop({ default: 0 }) shippingCharge:  number;
+  @Prop({ default: 0 }) platformFee:     number;
+  @Prop({ default: 0 }) tax:             number;
+  @Prop({ default: 0 }) orderTotal:      number;
+  @Prop({ default: 0 }) itemCount:       number;
+  @Prop({ default: 0 }) totalQuantity:   number;
 
   @Prop({ type: Date, default: null })
   expiresAt: Date | null;

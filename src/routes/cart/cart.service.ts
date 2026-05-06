@@ -8,6 +8,7 @@ import { Model, Types } from 'mongoose';
 import { Cart, CartDocument, CartItem } from './schemas/cart.schema';
 import { AddToCartDto, MergeCartDto, UpdateCartItemDto } from './dto/cart.dto';
 import { Product, ProductDocument } from '../Product/schemas/product.schema';
+import { computeTotals } from '../../common/utils/order-totals.util';
 
 @Injectable()
 export class CartService {
@@ -66,26 +67,25 @@ export class CartService {
     };
   }
 
+  /** Recompute all cart totals using the shared utility */
   private recalcTotals(cart: CartDocument): void {
-    // Refresh per-item totals first (quantity may have changed)
+    // Refresh per-item totals first
     for (const item of cart.items) {
       item.itemMrpTotal      = item.mrpAtAdd      * item.quantity;
       item.itemSellingTotal  = item.priceAtAdd     * item.quantity;
       item.itemDiscountTotal = item.discountAtAdd  * item.quantity;
     }
 
-    const mrpTotal      = cart.items.reduce((s, i) => s + i.itemMrpTotal,     0);
-    const subTotal      = cart.items.reduce((s, i) => s + i.itemSellingTotal,  0);
-    const totalDiscount = mrpTotal - subTotal;
-    const discountPercent = mrpTotal > 0
-      ? Math.round((totalDiscount / mrpTotal) * 1000) / 10
-      : 0;
+    const totals = computeTotals(cart.items);
 
-    cart.mrpTotal        = mrpTotal;
-    cart.subTotal        = subTotal;
-    cart.totalDiscount   = totalDiscount;
-    cart.discountPercent = discountPercent;
-    cart.orderTotal      = subTotal;   // no tax — orderTotal === subTotal
+    cart.mrpTotal        = totals.mrpTotal;
+    cart.subTotal        = totals.subTotal;
+    cart.totalDiscount   = totals.totalDiscount;
+    cart.discountPercent = totals.discountPercent;
+    cart.shippingCharge  = totals.shippingCharge;
+    cart.platformFee     = totals.platformFee;
+    cart.tax             = totals.tax;
+    cart.orderTotal      = totals.orderTotal;
     cart.itemCount       = cart.items.length;
     cart.totalQuantity   = cart.items.reduce((s, i) => s + i.quantity, 0);
   }
@@ -249,14 +249,17 @@ export class CartService {
       ),
     );
 
-    cart.items         = [];
-    cart.mrpTotal      = 0;
-    cart.subTotal      = 0;
-    cart.totalDiscount = 0;
+    cart.items           = [];
+    cart.mrpTotal        = 0;
+    cart.subTotal        = 0;
+    cart.totalDiscount   = 0;
     cart.discountPercent = 0;
-    cart.orderTotal    = 0;
-    cart.itemCount     = 0;
-    cart.totalQuantity = 0;
+    cart.shippingCharge  = 0;
+    cart.platformFee     = 0;
+    cart.tax             = 0;
+    cart.orderTotal      = 0;
+    cart.itemCount       = 0;
+    cart.totalQuantity   = 0;
     await cart.save();
   }
 

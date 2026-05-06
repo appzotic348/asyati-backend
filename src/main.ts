@@ -7,7 +7,9 @@ import { TransformInterceptor } from './common/response/transform.interceptor';
 import { configureCloudinary } from './common/cloudinary/cloudinary.util';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+  });
   configureCloudinary();
 
   app.useGlobalPipes(
