@@ -5,6 +5,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PaginationDto } from '../../../common/pagination';
+import { OrderStatus, PaymentMethod, PaymentStatus } from '../schemas/order.schema';
 
 // ── Inline address shape ───────────────────────────────────────────────────
 
@@ -101,4 +103,49 @@ export class CheckoutDto {
   })
   @IsEnum(['Cash', 'Online'], { message: 'paymentMethod must be Cash or Online' })
   paymentMethod: 'Cash' | 'Online';
+}
+
+export class OrderFilterDto extends PaginationDto {
+  @ApiPropertyOptional({
+    enum:        OrderStatus,
+    example:     OrderStatus.CONFIRMED,
+    description: 'Filter by order status.',
+  })
+  @IsOptional()
+  @IsEnum(OrderStatus)
+  orderStatus?: string;
+
+  @ApiPropertyOptional({
+    enum:        PaymentStatus,
+    example:     PaymentStatus.PAID,
+    description: 'Filter by payment status.',
+  })
+  @IsOptional()
+  @IsEnum(PaymentStatus)
+  paymentStatus?: string;
+
+  @ApiPropertyOptional({
+    enum:        PaymentMethod,
+    example:     PaymentMethod.ONLINE,
+    description: 'Filter by payment method.',
+  })
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: string;
+
+  @ApiPropertyOptional({
+    example:     '2024-01-01',
+    description: 'Filter orders from this date (inclusive). Format: YYYY-MM-DD',
+  })
+  @IsOptional()
+  @IsString()
+  fromDate?: string;
+
+  @ApiPropertyOptional({
+    example:     '2024-12-31',
+    description: 'Filter orders up to this date (inclusive). Format: YYYY-MM-DD',
+  })
+  @IsOptional()
+  @IsString()
+  toDate?: string;
 }

@@ -1,12 +1,13 @@
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import {
-  Body, Controller, Get, Param, Post, UseGuards,
-} from '@nestjs/common';
-import {
-  ApiBearerAuth, ApiOperation, ApiParam,
-  ApiResponse, ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
 } from '@nestjs/swagger';
 import { CheckoutService } from './checkout.service';
-import { CheckoutDto } from './dto/checkout.dto';
+import { CheckoutDto, OrderFilterDto } from './dto/checkout.dto';
 import { CustomerJwtGuard } from '../../customer-auth/guards/customer-jwt.guard';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 import { CustomerDocument } from '../../customers/schemas/customer.schema';
@@ -34,7 +35,10 @@ export class CheckoutController {
       'Cart is cleared on success.',
   })
   @ApiResponse({ status: 201, description: 'Order placed successfully.' })
-  @ApiResponse({ status: 400, description: 'Cart empty, address conflict, or validation error.' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cart empty, address conflict, or validation error.',
+  })
   @ApiResponse({ status: 404, description: 'Saved address not found.' })
   async placeOrder(
     @GetUser() customer: CustomerDocument,
@@ -51,15 +55,22 @@ export class CheckoutController {
 
   @Get('orders')
   @ApiOperation({
-    summary: 'Get all orders for the logged-in customer',
-    description: 'Returns all orders sorted by newest first.',
+    summary: 'Get all orders',
+    description:
+      '**Filters:** `orderStatus`, `paymentStatus`, `paymentMethod`, `fromDate`, `toDate`\n\n' +
+      '**Pagination:** `page` + `limit`. Omit both to get all.',
   })
   @ApiResponse({ status: 200, description: 'Order list.' })
-  async findAll(@GetUser() customer: CustomerDocument) {
-    const orders = await this.checkoutService.findAll(
+  async findAll(
+    @GetUser() customer: CustomerDocument,
+    @Query() filters: OrderFilterDto,
+  ) {
+    const result = await this.checkoutService.findAll(
       (customer as any)._id.toString(),
+      { page: filters.page, limit: filters.limit },
+      filters,
     );
-    return successResponse(orders);
+    return successResponse(result.data, { meta: result.meta as any });
   }
 
   // ── GET SINGLE ORDER ──────────────────────────────────────────────────────

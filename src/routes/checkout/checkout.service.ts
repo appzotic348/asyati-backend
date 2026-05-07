@@ -11,8 +11,9 @@ import {
   CustomerAddress,
   CustomerAddressDocument,
 } from '../customer-address/schemas/customer-address.schema';
-import { CheckoutDto, InlineAddressDto } from './dto/checkout.dto';
+import { CheckoutDto, InlineAddressDto, OrderFilterDto } from './dto/checkout.dto';
 import { computeTotals } from '../../common/utils/order-totals.util';
+import { paginate, PaginatedResult, PaginationDto } from '../../common/pagination';
 
 @Injectable()
 export class CheckoutService {
@@ -118,12 +119,32 @@ export class CheckoutService {
     return order;
   }
 
-  async findAll(customerId: string): Promise<OrderDocument[]> {
-    return this.orderModel
-      .find({ customerId: new Types.ObjectId(customerId) })
-      .sort({ createdAt: -1 })
-      .exec();
+  async findAll(
+  customerId: string,
+  pagination: PaginationDto,
+  filters:    OrderFilterDto,
+): Promise<PaginatedResult<OrderDocument>> {
+  const query: Record<string, any> = {
+    customerId: new Types.ObjectId(customerId),
+  };
+
+  if (filters.orderStatus)   query.orderStatus   = filters.orderStatus;
+  if (filters.paymentStatus) query.paymentStatus = filters.paymentStatus;
+  if (filters.paymentMethod) query.paymentMethod = filters.paymentMethod;
+
+  if (filters.fromDate || filters.toDate) {
+    query.createdAt = {};
+    if (filters.fromDate) query.createdAt.$gte = new Date(filters.fromDate);
+    if (filters.toDate)   query.createdAt.$lte = new Date(filters.toDate);
   }
+
+  return paginate<OrderDocument>(
+    this.orderModel,
+    query,
+    pagination,
+    { createdAt: -1 },
+  );
+}
 
   // ─── Private helpers ──────────────────────────────────────────────────────
 
