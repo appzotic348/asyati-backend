@@ -8,6 +8,7 @@ import {
 } from '../customer-address/schemas/customer-address.schema';
 import { CheckoutService } from './checkout.service';
 import { CheckoutController } from './checkout.controller';
+// import { ShipmentModule } from '../shipment/shipment.module';
 
 @Module({
   imports: [
@@ -16,9 +17,10 @@ import { CheckoutController } from './checkout.controller';
       { name: Cart.name,            schema: CartSchema },
       { name: CustomerAddress.name, schema: CustomerAddressSchema },
     ]),
+    // ShipmentModule,  
   ],
   controllers: [CheckoutController],
-  providers: [CheckoutService],
-  exports: [CheckoutService],
+  providers:   [CheckoutService],
+  exports:     [CheckoutService],
 })
 export class CheckoutModule {}

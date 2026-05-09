@@ -10,18 +10,14 @@ import { Model, Types } from 'mongoose';
 import * as crypto from 'crypto';
 import axios from 'axios';
 import {
-  Payment,
-  PaymentDocument,
-  PaymentGatewayStatus,
+  Payment, PaymentDocument, PaymentGatewayStatus,
 } from './schemas/payment.schema';
 import {
-  Order,
-  OrderDocument,
-  OrderStatus,
-  PaymentStatus,
+  Order, OrderDocument, OrderStatus, PaymentStatus,
 } from '../checkout/schemas/order.schema';
 import { cashfreeConfig } from '../../config/cashfree.config';
 import { paginate, PaginatedResult, PaginationDto } from '../../common/pagination';
+// import { ShipmentService } from '../shipment/shipment.service';
 
 @Injectable()
 export class PaymentService {
@@ -32,6 +28,7 @@ export class PaymentService {
     private readonly paymentModel: Model<PaymentDocument>,
     @InjectModel(Order.name)
     private readonly orderModel: Model<OrderDocument>,
+    // private readonly shipmentService: ShipmentService,
   ) {}
 
   private get cfHeaders() {
@@ -50,7 +47,7 @@ export class PaymentService {
     PaymentGatewayStatus.REFUNDED,
   ]);
 
-  // 1. INITIATE PAYMENT ──────────────────────────────────────────────────────────────
+  // 1. INITIATE ──────────────────────────────────────────────────────────────
 
   async initiatePayment(
     customerId: string,
@@ -165,7 +162,7 @@ export class PaymentService {
       };
       return {
         status:  payment.status,
-        message: messageMap[payment.status] ?? 'Payment is in a final state',
+        message: messageMap[payment.status] ?? 'Payment in final state',
         order:   order ?? undefined,
       };
     }
@@ -273,8 +270,11 @@ export class PaymentService {
           payment.status      = PaymentGatewayStatus.PAID;
           payment.cfPaymentId = cfPaymentId || null;
           await payment.save();
-          await this.markOrderPaid(payment.orderId.toString(), orderNumber, cfPaymentId || null);
-          this.logger.log(` Payment SUCCESS | order: ${orderNumber}`);
+          await this.markOrderPaid(
+            payment.orderId.toString(),
+            orderNumber,
+            cfPaymentId || null,
+          );
         }
         break;
 
@@ -361,6 +361,21 @@ export class PaymentService {
     );
     if (!order) throw new NotFoundException('Order not found while marking as paid');
     this.logger.log(` Order ${order.orderNumber} → PAID + CONFIRMED`);
+
+  
+    // try {
+    //   await this.shipmentService.createShipment(orderId);
+
+    //   console.log("shipmer mark ad paid ----------------------------------------------------------->",order)
+    //   this.logger.log(
+    //     ` Online shipment created for order ${order.orderNumber}`,
+    //   );
+    // } catch (err) {
+    //   this.logger.warn(
+    //     `Online shipment creation failed for ${order.orderNumber}: ${(err as Error).message}`,
+    //   );
+    // }
+
     return order;
   }
 }

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  // Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -14,9 +15,12 @@ import {
 import { CheckoutDto, InlineAddressDto, OrderFilterDto } from './dto/checkout.dto';
 import { computeTotals } from '../../common/utils/order-totals.util';
 import { paginate, PaginatedResult, PaginationDto } from '../../common/pagination';
+// import { ShipmentService } from '../shipment/shipment.service';
 
 @Injectable()
 export class CheckoutService {
+  // private readonly logger = new Logger(CheckoutService.name);
+
   constructor(
     @InjectModel(Order.name)
     private readonly orderModel: Model<OrderDocument>,
@@ -24,6 +28,7 @@ export class CheckoutService {
     private readonly cartModel: Model<CartDocument>,
     @InjectModel(CustomerAddress.name)
     private readonly addressModel: Model<CustomerAddressDocument>,
+    // private readonly shipmentService: ShipmentService,
   ) {}
 
   async placeOrder(
@@ -58,7 +63,6 @@ export class CheckoutService {
       mainImageUrl:    i.mainImageUrl,
     }));
 
-    // Use shared utility — same config as cart
     const totals = computeTotals(
       cart.items.map((i) => ({
         mrpAtAdd:   i.mrpAtAdd,
@@ -104,6 +108,23 @@ export class CheckoutService {
       },
     );
 
+    // if (dto.paymentMethod === 'Cash') {
+    //   try {
+    //     await this.shipmentService.createShipment(
+    //       (order._id as any).toString(),
+    //     );
+    //     this.logger.log(
+    //       ` COD shipment created for order ${order.orderNumber}`,
+    //     );
+    //   } catch (err) {
+    //     // Non-fatal — order is placed successfully.
+    //     // Shipment saved as Pending, admin can retry via POST /admin/shipments/:orderId/retry
+    //     this.logger.warn(
+    //       `COD shipment creation failed for ${order.orderNumber}: ${(err as Error).message}`,
+    //     );
+    //   }
+    // }
+
     return order;
   }
 
@@ -144,7 +165,7 @@ export class CheckoutService {
     pagination,
     { createdAt: -1 },
   );
-}
+  }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
 
@@ -175,7 +196,9 @@ export class CheckoutService {
         isDeleted:  false,
       });
       if (!saved)
-        throw new NotFoundException(`${label} address not found or does not belong to you`);
+        throw new NotFoundException(
+          `${label} address not found or does not belong to you`,
+        );
 
       return {
         firstName: saved.firstName, lastName: saved.lastName,
@@ -187,7 +210,6 @@ export class CheckoutService {
 
     const normalized = { ...inlineDto!, country: inlineDto!.country ?? 'India' };
 
-    // Save if not duplicate and under limit
     const [existing, count] = await Promise.all([
       this.addressModel.findOne({
         customerId: new Types.ObjectId(customerId),
