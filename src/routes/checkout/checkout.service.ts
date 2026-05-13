@@ -6,7 +6,12 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Order, OrderDocument, OrderAddress, OrderItem } from './schemas/order.schema';
+import {
+  Order,
+  OrderDocument,
+  OrderAddress,
+  OrderItem,
+} from './schemas/order.schema';
 import { Cart, CartDocument } from '../cart/schemas/cart.schema';
 import {
   CustomerAddress,
@@ -15,6 +20,7 @@ import {
 import { CheckoutDto, InlineAddressDto, OrderFilterDto } from './dto/checkout.dto';
 import { computeTotals } from '../../common/utils/order-totals.util';
 import { paginate, PaginatedResult, PaginationDto } from '../../common/pagination';
+import { ShippingConfigService } from '../shipping-config/shipping-config.service';
 // import { ShipmentService } from '../shipment/shipment.service';
 
 @Injectable()
@@ -28,8 +34,11 @@ export class CheckoutService {
     private readonly cartModel: Model<CartDocument>,
     @InjectModel(CustomerAddress.name)
     private readonly addressModel: Model<CustomerAddressDocument>,
+    private readonly shippingConfigService: ShippingConfigService,
     // private readonly shipmentService: ShipmentService,
   ) {}
+
+  // ─── PLACE ORDER ──────────────────────────────────────────────────────────
 
   async placeOrder(
     customerId: string,
@@ -49,26 +58,41 @@ export class CheckoutService {
       this.resolveAddress(customerId, dto.billingAddressId,  dto.billingAddress,  'billing'),
     ]);
 
-    const items: OrderItem[] = cart.items.map((i) => ({
-      productId:       i.productId,
-      quantity:        i.quantity,
-      priceAtOrder:    i.priceAtAdd,
-      mrpAtOrder:      i.mrpAtAdd,
-      discountAtOrder: i.discountAtAdd,
-      itemTotal:       i.priceAtAdd * i.quantity,
-      productName:     i.productName,
-      sellerSkuId:     i.sellerSkuId,
-      size:            i.size,
-      color:           i.color,
-      mainImageUrl:    i.mainImageUrl,
-    }));
+    const items: OrderItem[] = cart.items.map((i) => {
+      const taxRateAtOrder = i.taxRate ?? 0;
+      const itemTotal      = i.priceAtAdd * i.quantity;
+      const itemTax        = Math.round(itemTotal * taxRateAtOrder * 100) / 100;
+
+      return {
+        productId:       i.productId,
+        variantId:       i.variantId,
+        quantity:        i.quantity,
+        priceAtOrder:    i.priceAtAdd,
+        mrpAtOrder:      i.mrpAtAdd,
+        discountAtOrder: i.discountAtAdd,
+        itemTotal,
+        taxRateAtOrder,
+        itemTax,
+        productName:     i.productName,
+        sellerSkuId:     i.sellerSkuId,
+        variantSku:      i.variantSku,
+        variantTitle:    i.variantTitle,
+        size:            i.size,
+        color:           i.color,
+        mainImageUrl:    i.mainImageUrl,
+      };
+    });
+
+    const shippingConfig = await this.shippingConfigService.getConfig();
 
     const totals = computeTotals(
       cart.items.map((i) => ({
         mrpAtAdd:   i.mrpAtAdd,
         priceAtAdd: i.priceAtAdd,
         quantity:   i.quantity,
+        taxRate:    i.taxRate ?? 0,
       })),
+      shippingConfig,
     );
 
     const orderNumber = await this.generateOrderNumber();
@@ -94,7 +118,6 @@ export class CheckoutService {
 
     await order.save();
 
-    // Clear cart after successful order
     await this.cartModel.findOneAndUpdate(
       { customerId: new Types.ObjectId(customerId) },
       {
@@ -128,6 +151,8 @@ export class CheckoutService {
     return order;
   }
 
+  // ─── FIND BY ID ───────────────────────────────────────────────────────────
+
   async findById(customerId: string, orderId: string): Promise<OrderDocument> {
     if (!Types.ObjectId.isValid(orderId))
       throw new NotFoundException('Order not found');
@@ -140,31 +165,33 @@ export class CheckoutService {
     return order;
   }
 
+  // ─── FIND ALL ─────────────────────────────────────────────────────────────
+
   async findAll(
-  customerId: string,
-  pagination: PaginationDto,
-  filters:    OrderFilterDto,
-): Promise<PaginatedResult<OrderDocument>> {
-  const query: Record<string, any> = {
-    customerId: new Types.ObjectId(customerId),
-  };
+    customerId: string,
+    pagination: PaginationDto,
+    filters:    OrderFilterDto,
+  ): Promise<PaginatedResult<OrderDocument>> {
+    const query: Record<string, any> = {
+      customerId: new Types.ObjectId(customerId),
+    };
 
-  if (filters.orderStatus)   query.orderStatus   = filters.orderStatus;
-  if (filters.paymentStatus) query.paymentStatus = filters.paymentStatus;
-  if (filters.paymentMethod) query.paymentMethod = filters.paymentMethod;
+    if (filters.orderStatus)   query.orderStatus   = filters.orderStatus;
+    if (filters.paymentStatus) query.paymentStatus = filters.paymentStatus;
+    if (filters.paymentMethod) query.paymentMethod = filters.paymentMethod;
 
-  if (filters.fromDate || filters.toDate) {
-    query.createdAt = {};
-    if (filters.fromDate) query.createdAt.$gte = new Date(filters.fromDate);
-    if (filters.toDate)   query.createdAt.$lte = new Date(filters.toDate);
-  }
+    if (filters.fromDate || filters.toDate) {
+      query.createdAt = {};
+      if (filters.fromDate) query.createdAt.$gte = new Date(filters.fromDate);
+      if (filters.toDate)   query.createdAt.$lte = new Date(filters.toDate);
+    }
 
-  return paginate<OrderDocument>(
-    this.orderModel,
-    query,
-    pagination,
-    { createdAt: -1 },
-  );
+    return paginate<OrderDocument>(
+      this.orderModel,
+      query,
+      pagination,
+      { createdAt: -1 },
+    );
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────

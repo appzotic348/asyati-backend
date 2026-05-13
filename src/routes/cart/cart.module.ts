@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Cart, CartSchema } from './schemas/cart.schema';
-import { CartService } from './cart.service';
-import { CartController } from './cart.controller';
-// import { InventoryModule } from '../inventory/inventory.module';
-import { Product, ProductSchema } from '../Product/schemas/product.schema';
+import { Cart, CartSchema }             from './schemas/cart.schema';
+import { CartService }                  from './cart.service';
+import { CartController }               from './cart.controller';
+import { Product, ProductSchema }       from '../Product/schemas/product.schema';
+import { InventoryModule }              from '../inventory/inventory.module';
+import { ShippingConfigModule }         from '../shipping-config/shipping-config.module';
 
 @Module({
   imports: [
@@ -12,10 +13,11 @@ import { Product, ProductSchema } from '../Product/schemas/product.schema';
       { name: Cart.name,    schema: CartSchema },
       { name: Product.name, schema: ProductSchema },
     ]),
-    // InventoryModule,  // provides InventoryService for stock reserve/release
+    InventoryModule,
+    ShippingConfigModule,   
   ],
   controllers: [CartController],
-  providers: [CartService],
-  exports: [CartService],  // exported so OrderService can call confirmSale later
+  providers:   [CartService],
+  exports:     [CartService],
 })
 export class CartModule {}

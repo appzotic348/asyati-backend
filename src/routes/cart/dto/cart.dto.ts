@@ -6,10 +6,19 @@ import { IsInt, IsMongoId, IsOptional, IsString, Min } from 'class-validator';
 export class AddToCartDto {
   @ApiProperty({
     example: '665f1a2b3c4d5e6f7a8b9c0d',
-    description: 'MongoDB ObjectId of the product to add.',
+    description: 'MongoDB ObjectId of the product.',
   })
   @IsMongoId()
   productId: string;
+
+  @ApiProperty({
+    example: '775f1a2b3c4d5e6f7a8b9c0e',
+    description:
+      'MongoDB ObjectId of the specific variant (_id inside product.variants[]).\n\n' +
+      'Each variant has its own size, color, pricing and stock — this field is required.',
+  })
+  @IsMongoId()
+  variantId: string;
 
   @ApiProperty({ example: 1, description: 'Quantity to add. Minimum: 1.' })
   @Transform(({ value }) => parseInt(String(value), 10))
@@ -32,7 +41,7 @@ export class AddToCartDto {
 export class UpdateCartItemDto {
   @ApiProperty({
     example: 3,
-    description: 'New quantity. Send 0 to remove the item entirely.',
+    description: 'New absolute quantity. Send 0 to remove the item entirely.',
   })
   @Transform(({ value }) => parseInt(String(value), 10))
   @IsInt()
@@ -59,7 +68,7 @@ export class MergeCartDto {
       '2. Guest proceeds to checkout → redirected to login/register\n' +
       '3. Guest logs in/registers → receives accessToken\n' +
       '4. Frontend calls `POST /customer/cart/merge` with Bearer token + `{ guestId }`\n' +
-      '5. Guest items are moved into the customer cart (quantities are combined)\n' +
+      '5. Guest items are moved into the customer cart (quantities combined)\n' +
       '6. Guest cart is deleted → frontend removes guestId from localStorage',
   })
   @IsString()

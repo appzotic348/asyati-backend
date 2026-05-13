@@ -8,6 +8,12 @@ import { PaymentModule } from './payment/payment.module';
 import { AdminOrdersModule } from './admin-orders/admin-orders.module';
 // import { ShipmentModule } from './shipment/shipment.module';
 import { WishlistModule } from './wishlist/wishlist.module';
+import { DepartmentModule } from './department/department.module';
+import { CategoryModule }   from './category/category.module';
+import { TaxGuideModule }   from './tax-guide/tax-guide.module';
+import { InventoryModule }  from './inventory/inventory.module';
+import { BrandModule } from './brand/brand.module';
+import { ShippingConfigModule } from './shipping-config/shipping-config.module';
 
 @Module({
   imports: [
@@ -20,6 +26,12 @@ import { WishlistModule } from './wishlist/wishlist.module';
     AdminOrdersModule,
     // ShipmentModule,
     WishlistModule,
+    DepartmentModule,
+    CategoryModule,
+    TaxGuideModule,
+    InventoryModule,
+    BrandModule,
+    ShippingConfigModule,
   ],
 })
 export class RoutesModule {}

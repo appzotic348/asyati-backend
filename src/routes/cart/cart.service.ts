@@ -8,6 +8,8 @@ import { Model, Types } from 'mongoose';
 import { Cart, CartDocument, CartItem } from './schemas/cart.schema';
 import { AddToCartDto, MergeCartDto, UpdateCartItemDto } from './dto/cart.dto';
 import { Product, ProductDocument } from '../Product/schemas/product.schema';
+import { InventoryService } from '../inventory/inventory.service';
+import { ShippingConfigService } from '../shipping-config/shipping-config.service';
 import { computeTotals } from '../../common/utils/order-totals.util';
 
 @Injectable()
@@ -17,9 +19,11 @@ export class CartService {
     private readonly cartModel: Model<CartDocument>,
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
+    private readonly inventoryService: InventoryService,
+    private readonly shippingConfigService: ShippingConfigService,
   ) {}
 
-  // ─── Private helpers ──────────────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────────────
 
   private async getOrCreateCart(
     customerId?: string,
@@ -44,40 +48,90 @@ export class CartService {
     return cart;
   }
 
-  private buildItem(product: ProductDocument, quantity: number): CartItem {
-    const priceAtAdd    = product.sellingPrice;
-    const mrpAtAdd      = product.mrp;
-    const discountAtAdd = mrpAtAdd - priceAtAdd;
+  private async resolveProductVariant(
+    productId: string,
+    variantId: string,
+  ): Promise<{ product: ProductDocument; variant: any }> {
+    if (!Types.ObjectId.isValid(productId) || !Types.ObjectId.isValid(variantId))
+      throw new NotFoundException('Product or variant not found');
+
+    const product = await this.productModel
+      .findOne({
+        _id:              new Types.ObjectId(productId),
+        'flags.isDeleted': false,
+        listingStatus:    'Active',
+      })
+      .populate('taxGuideId', 'taxRate');   
+
+    if (!product)
+      throw new NotFoundException('Product not found or not available');
+
+    const variant = (product.variants as any[]).find(
+      (v) => v._id.toString() === variantId,
+    );
+    if (!variant)
+      throw new NotFoundException('Variant not found on this product');
+
+    if (variant.status === 'INACTIVE')
+      throw new BadRequestException('This variant is currently unavailable');
+
+    return { product, variant };
+  }
+
+  private resolveTaxRate(product: ProductDocument): number {
+    const guide = (product as any).taxGuideId;
+    if (!guide) return 0;
+    if (typeof guide.taxRate !== 'number') return 0;
+    return guide.taxRate / 100;
+  }
+
+  private buildItem(
+    product: ProductDocument,
+    variant: any,
+    quantity: number,
+    availableStock: number,
+    taxRate: number,
+  ): CartItem {
+    const mrp          = variant.pricing.mrp          as number;
+    const sellingPrice = variant.pricing.sellingPrice  as number;
+    const discount     = mrp - sellingPrice;
+    const discountPct  = mrp > 0 ? Math.round((discount / mrp) * 100) : 0;
 
     return {
-      productId:         product._id as Types.ObjectId,
+      productId:           product._id as Types.ObjectId,
+      variantId:           variant._id  as Types.ObjectId,
       quantity,
-      priceAtAdd,
-      mrpAtAdd,
-      discountAtAdd,
-      productName:       `${product.brand} — ${product.styleCode}`,
-      sellerSkuId:       product.sellerSkuId,
-      size:              product.size,
-      color:             product.color,
-      mainImageUrl:      product.mainImage?.url ?? '',
-      addedAt:           new Date(),
-      itemMrpTotal:      mrpAtAdd      * quantity,
-      itemSellingTotal:  priceAtAdd    * quantity,
-      itemDiscountTotal: discountAtAdd * quantity,
+      priceAtAdd:          sellingPrice,
+      mrpAtAdd:            mrp,
+      discountAtAdd:       discount,
+      discountPctAtAdd:    discountPct,
+      currency:            variant.pricing.currency ?? 'INR',
+      taxRate,
+      productName:         product.name,
+      sellerSkuId:         product.sellerSkuId,
+      variantSku:          variant.sku   ?? '',
+      variantTitle:        variant.title ?? `${variant.color} / ${variant.size}`,
+      size:                variant.size,
+      color:               variant.color,
+      mainImageUrl:        (product.mainImage as any)?.url ?? '',
+      availableStockAtAdd: availableStock,
+      addedAt:             new Date(),
+      itemMrpTotal:        mrp          * quantity,
+      itemSellingTotal:    sellingPrice * quantity,
+      itemDiscountTotal:   discount     * quantity,
     };
   }
 
-  /** Recompute all cart totals using the shared utility */
-  private recalcTotals(cart: CartDocument): void {
-    // Refresh per-item totals first
+  private async recalcTotals(cart: CartDocument): Promise<void> {
     for (const item of cart.items) {
-      item.itemMrpTotal      = item.mrpAtAdd      * item.quantity;
-      item.itemSellingTotal  = item.priceAtAdd     * item.quantity;
-      item.itemDiscountTotal = item.discountAtAdd  * item.quantity;
+      item.itemMrpTotal      = item.mrpAtAdd     * item.quantity;
+      item.itemSellingTotal  = item.priceAtAdd   * item.quantity;
+      item.itemDiscountTotal = item.discountAtAdd * item.quantity;
     }
 
-    const totals = computeTotals(cart.items);
+    const shippingConfig = await this.shippingConfigService.getConfig();
 
+    const totals         = computeTotals(cart.items, shippingConfig);
     cart.mrpTotal        = totals.mrpTotal;
     cart.subTotal        = totals.subTotal;
     cart.totalDiscount   = totals.totalDiscount;
@@ -90,37 +144,15 @@ export class CartService {
     cart.totalQuantity   = cart.items.reduce((s, i) => s + i.quantity, 0);
   }
 
-  private async getActiveProduct(productId: string): Promise<ProductDocument> {
-    if (!Types.ObjectId.isValid(productId))
-      throw new NotFoundException('Product not found');
-
-    const product = await this.productModel.findOne({
-      _id:           new Types.ObjectId(productId),
-      isDeleted:     false,
-      listingStatus: 'Active',
-    });
-    if (!product)
-      throw new NotFoundException('Product not found or not available');
-    return product;
-  }
-
-  private async reserveStock(productId: string, qty: number): Promise<void> {
-    const result = await this.productModel.findOneAndUpdate(
-      {
-        _id:           new Types.ObjectId(productId),
-        isDeleted:     false,
-        listingStatus: 'Active',
-        stock:         { $gte: qty },
-      },
-      { $inc: { stock: -qty } },
-    );
-    if (!result) throw new BadRequestException('Insufficient stock');
-  }
-
-  private async releaseStock(productId: string, qty: number): Promise<void> {
-    await this.productModel.findOneAndUpdate(
-      { _id: new Types.ObjectId(productId) },
-      { $inc: { stock: qty } },
+  private findItemIndex(
+    cart: CartDocument,
+    productId: string,
+    variantId: string,
+  ): number {
+    return cart.items.findIndex(
+      (i) =>
+        i.productId.toString() === productId &&
+        i.variantId.toString() === variantId,
     );
   }
 
@@ -143,22 +175,40 @@ export class CartService {
         'Send a Bearer token (logged-in) or guestId (guest)',
       );
 
-    const product = await this.getActiveProduct(dto.productId);
-    const cart    = await this.getOrCreateCart(customerId, guestId);
-
-    await this.reserveStock(dto.productId, dto.quantity);
-
-    const existingIdx = cart.items.findIndex(
-      (i) => i.productId.toString() === dto.productId,
+    const { product, variant } = await this.resolveProductVariant(
+      dto.productId,
+      dto.variantId,
     );
 
-    if (existingIdx >= 0) {
-      cart.items[existingIdx].quantity += dto.quantity;
+    await this.inventoryService.reserveStock(
+      dto.productId,
+      dto.variantId,
+      dto.quantity,
+    );
+
+    const invRecord = await this.inventoryService
+      .findByVariantId(dto.productId, dto.variantId)
+      .catch(() => null);
+    const availableStock = invRecord
+      ? invRecord.stock - (invRecord.reserved ?? 0)
+      : 0;
+
+    const taxRate = this.resolveTaxRate(product);
+
+    const cart = await this.getOrCreateCart(customerId, guestId);
+    const idx  = this.findItemIndex(cart, dto.productId, dto.variantId);
+
+    if (idx >= 0) {
+      cart.items[idx].quantity          += dto.quantity;
+      cart.items[idx].availableStockAtAdd = availableStock;
+      cart.items[idx].taxRate             = taxRate;
     } else {
-      cart.items.push(this.buildItem(product, dto.quantity));
+      cart.items.push(
+        this.buildItem(product, variant, dto.quantity, availableStock, taxRate),
+      );
     }
 
-    this.recalcTotals(cart);
+    await this.recalcTotals(cart);
     cart.markModified('items');
     return cart.save();
   }
@@ -167,6 +217,7 @@ export class CartService {
 
   async updateItem(
     productId: string,
+    variantId: string,
     dto: UpdateCartItemDto,
     customerId?: string,
   ): Promise<CartDocument> {
@@ -177,9 +228,7 @@ export class CartService {
       );
 
     const cart = await this.getOrCreateCart(customerId, guestId);
-    const idx  = cart.items.findIndex(
-      (i) => i.productId.toString() === productId,
-    );
+    const idx  = this.findItemIndex(cart, productId, variantId);
     if (idx < 0) throw new NotFoundException('Item not found in cart');
 
     const oldQty = cart.items[idx].quantity;
@@ -187,17 +236,17 @@ export class CartService {
     const delta  = newQty - oldQty;
 
     if (newQty === 0) {
-      await this.releaseStock(productId, oldQty);
+      await this.inventoryService.releaseStock(productId, variantId, oldQty);
       cart.items.splice(idx, 1);
     } else if (delta > 0) {
-      await this.reserveStock(productId, delta);
+      await this.inventoryService.reserveStock(productId, variantId, delta);
       cart.items[idx].quantity = newQty;
     } else if (delta < 0) {
-      await this.releaseStock(productId, Math.abs(delta));
+      await this.inventoryService.releaseStock(productId, variantId, Math.abs(delta));
       cart.items[idx].quantity = newQty;
     }
 
-    this.recalcTotals(cart);
+    await this.recalcTotals(cart);
     cart.markModified('items');
     return cart.save();
   }
@@ -206,6 +255,7 @@ export class CartService {
 
   async removeItem(
     productId: string,
+    variantId: string,
     customerId?: string,
     guestId?: string,
   ): Promise<CartDocument> {
@@ -215,15 +265,17 @@ export class CartService {
       );
 
     const cart = await this.getOrCreateCart(customerId, guestId);
-    const idx  = cart.items.findIndex(
-      (i) => i.productId.toString() === productId,
-    );
+    const idx  = this.findItemIndex(cart, productId, variantId);
     if (idx < 0) throw new NotFoundException('Item not found in cart');
 
-    await this.releaseStock(productId, cart.items[idx].quantity);
+    await this.inventoryService.releaseStock(
+      productId,
+      variantId,
+      cart.items[idx].quantity,
+    );
     cart.items.splice(idx, 1);
 
-    this.recalcTotals(cart);
+    await this.recalcTotals(cart);
     cart.markModified('items');
     return cart.save();
   }
@@ -245,7 +297,11 @@ export class CartService {
 
     await Promise.all(
       cart.items.map((item) =>
-        this.releaseStock(item.productId.toString(), item.quantity),
+        this.inventoryService.releaseStock(
+          item.productId.toString(),
+          item.variantId.toString(),
+          item.quantity,
+        ),
       ),
     );
 
@@ -277,19 +333,21 @@ export class CartService {
     if (!guestCart || guestCart.items.length === 0) return customerCart;
 
     for (const guestItem of guestCart.items) {
-      const productIdStr = guestItem.productId.toString();
-      const existingIdx  = customerCart.items.findIndex(
-        (i) => i.productId.toString() === productIdStr,
-      );
+      const pId = guestItem.productId.toString();
+      const vId = guestItem.variantId.toString();
+      const idx = this.findItemIndex(customerCart, pId, vId);
 
-      if (existingIdx >= 0) {
-        customerCart.items[existingIdx].quantity += guestItem.quantity;
+      if (idx >= 0) {
+        await this.inventoryService
+          .reserveStock(pId, vId, guestItem.quantity)
+          .catch(() => { /* skip if stock gone */ });
+        customerCart.items[idx].quantity += guestItem.quantity;
       } else {
         customerCart.items.push({ ...guestItem });
       }
     }
 
-    this.recalcTotals(customerCart);
+    await this.recalcTotals(customerCart);
     customerCart.markModified('items');
     await customerCart.save();
 

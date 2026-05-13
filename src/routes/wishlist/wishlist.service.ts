@@ -52,20 +52,54 @@ export class WishlistService {
   }
 
   private buildItem(product: ProductDocument): WishlistItem {
+    const activeVariants = (product.variants as any[]).filter(
+      (v) => v.status !== 'INACTIVE',
+    );
+
+    // Cheapest active variant by sellingPrice
+    const cheapest = activeVariants.length
+      ? activeVariants.reduce((min, v) =>
+          v.pricing.sellingPrice < min.pricing.sellingPrice ? v : min,
+        )
+      : null;
+
+    const mrp          = cheapest?.pricing.mrp          ?? 0;
+    const sellingPrice = cheapest?.pricing.sellingPrice  ?? 0;
+    const discount     = mrp - sellingPrice;
+    const discountPct  = mrp > 0 ? Math.round((discount / mrp) * 100) : 0;
+
+    const availableColors = [
+      ...new Set((product.variants as any[]).map((v) => v.color).filter(Boolean)),
+    ] as string[];
+
+    const availableSizes = [
+      ...new Set((product.variants as any[]).map((v) => v.size).filter(Boolean)),
+    ] as string[];
+
     return {
-      productId:    product._id as Types.ObjectId,
-      productName:  `${product.brand} — ${product.styleCode}`,
-      sellerSkuId:  product.sellerSkuId,
-      mrp:          product.mrp,
-      sellingPrice: product.sellingPrice,
-      discount:     product.mrp - product.sellingPrice,
-      size:         product.size,
-      color:        product.color,
-      mainImageUrl: product.mainImage?.url ?? '',
-      brand:        product.brand,
-      isAvailable:  product.listingStatus === 'Active' && product.stock > 0,
-      addedAt:      new Date(),
+      productId:       product._id as Types.ObjectId,
+      productName:     product.name,
+      sellerSkuId:     product.sellerSkuId,
+      styleCode:       product.styleCode ?? '',
+      mrp,
+      sellingPrice,
+      discount,
+      discountPct,
+      availableColors,
+      availableSizes,
+      mainImageUrl:    (product.mainImage as any)?.url ?? '',
+      isAvailable:     this.checkProductAvailability(product),
+      addedAt:         new Date(),
     };
+  }
+
+  private checkProductAvailability(product: ProductDocument): boolean {
+    return (
+      !product.flags.isDeleted &&
+      !product.flags.isBlocked &&
+      product.listingStatus === 'Active' &&
+      product.availableStock > 0
+    );
   }
 
   private recalcCount(wishlist: WishlistDocument): void {
@@ -73,7 +107,7 @@ export class WishlistService {
   }
 
   private paginateItems(
-    items: WishlistItem[],
+    items:  WishlistItem[],
     page?:  number,
     limit?: number,
   ): PaginatedResult<WishlistItem> {
@@ -114,22 +148,29 @@ export class WishlistService {
   private async refreshAvailability(wishlist: WishlistDocument): Promise<void> {
     if (wishlist.items.length === 0) return;
 
-    const productIds    = wishlist.items.map((i) => i.productId);
-    const activeProducts = await this.productModel
-      .find({
-        _id:           { $in: productIds },
-        isDeleted:     false,
-        listingStatus: 'Active',
-        stock:         { $gt: 0 },
-      })
-      .select('_id')
+    const productIds = wishlist.items.map((i) => i.productId);
+
+    const products = await this.productModel
+      .find({ _id: { $in: productIds } })
+      .select('_id flags listingStatus availableStock')
       .lean();
 
-    const activeSet = new Set(activeProducts.map((p) => p._id.toString()));
+    const productMap = new Map(
+      products.map((p) => [p._id.toString(), p]),
+    );
+
     let modified = false;
 
     for (const item of wishlist.items) {
-      const available = activeSet.has(item.productId.toString());
+      const p = productMap.get(item.productId.toString());
+
+      const available = p
+        ? !(p as any).flags.isDeleted &&
+          !(p as any).flags.isBlocked &&
+          (p as any).listingStatus === 'Active' &&
+          (p as any).availableStock > 0
+        : false;  
+
       if (item.isAvailable !== available) {
         item.isAvailable = available;
         modified = true;
@@ -141,6 +182,8 @@ export class WishlistService {
       await wishlist.save();
     }
   }
+
+  // ─── Public methods ───────────────────────────────────────────────────────
 
   async getWishlistAuth(
     customerId: string,
@@ -176,14 +219,13 @@ export class WishlistService {
     dto:        AddToWishlistDto,
   ): Promise<WishlistDocument> {
     const product = await this.productModel.findOne({
-      _id:       new Types.ObjectId(dto.productId),
-      isDeleted: false,
+      _id:              new Types.ObjectId(dto.productId),
+      'flags.isDeleted': false,
     });
     if (!product) throw new NotFoundException('Product not found');
 
     const wishlist = await this.getOrCreateWishlist(customerId);
 
-    // Idempotent — silently skip if already wishlisted
     const exists = wishlist.items.some(
       (i) => i.productId.toString() === dto.productId,
     );
@@ -195,14 +237,13 @@ export class WishlistService {
     return wishlist.save();
   }
 
-
   async addItemGuest(dto: GuestAddToWishlistDto): Promise<WishlistDocument> {
     if (!dto.guestId)
       throw new BadRequestException('guestId is required');
 
     const product = await this.productModel.findOne({
-      _id:       new Types.ObjectId(dto.productId),
-      isDeleted: false,
+      _id:              new Types.ObjectId(dto.productId),
+      'flags.isDeleted': false,
     });
     if (!product) throw new NotFoundException('Product not found');
 
@@ -254,7 +295,6 @@ export class WishlistService {
     return wishlist.save();
   }
 
-
   async clearWishlistAuth(customerId: string): Promise<void> {
     const wishlist = await this.wishlistModel.findOne({
       customerId: new Types.ObjectId(customerId),
@@ -291,7 +331,6 @@ export class WishlistService {
     if (!wishlist) return false;
     return wishlist.items.some((i) => i.productId.toString() === productId);
   }
-
 
   async mergeGuestWishlist(
     customerId: string,

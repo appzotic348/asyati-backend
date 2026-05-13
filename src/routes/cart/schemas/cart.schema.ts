@@ -7,23 +7,41 @@ export class CartItem {
   @Prop({ type: Types.ObjectId, ref: 'Product', required: true })
   productId: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, required: true })
+  variantId: Types.ObjectId;
+
   @Prop({ required: true, min: 1 })
   quantity: number;
 
-  @Prop({ required: true }) 
-  priceAtAdd: number;
+  @Prop({ required: true })
+  priceAtAdd: number;       
 
   @Prop({ required: true })
-  mrpAtAdd: number;
+  mrpAtAdd: number;        
 
   @Prop({ required: true })
-  discountAtAdd: number;
+  discountAtAdd: number;   
+
+  @Prop({ required: true })
+  discountPctAtAdd: number; 
+
+  @Prop({ trim: true })
+  currency: string;         
+
+  @Prop({ default: 0 })
+  taxRate: number;
 
   @Prop({ trim: true })
   productName: string;
 
   @Prop({ trim: true })
   sellerSkuId: string;
+
+  @Prop({ trim: true })
+  variantSku: string;       
+
+  @Prop({ trim: true })
+  variantTitle: string;    
 
   @Prop({ trim: true })
   size: string;
@@ -34,6 +52,9 @@ export class CartItem {
   @Prop({ trim: true })
   mainImageUrl: string;
 
+  @Prop({ default: 0 })
+  availableStockAtAdd: number;
+
   @Prop({ default: () => new Date() })
   addedAt: Date;
 
@@ -42,7 +63,7 @@ export class CartItem {
 
   @Prop({ required: true })
   itemSellingTotal: number;
-  
+
   @Prop({ required: true })
   itemDiscountTotal: number;
 }
@@ -58,7 +79,6 @@ export class Cart {
   @Prop({ type: [Object], default: [] })
   items: CartItem[];
 
-  // ── Totals ────────────────────────────────────────────────────────────────
   @Prop({ default: 0 }) mrpTotal:        number;
   @Prop({ default: 0 }) subTotal:        number;
   @Prop({ default: 0 }) totalDiscount:   number;

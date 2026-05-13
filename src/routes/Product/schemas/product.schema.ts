@@ -1,29 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
-import {
-  IdealFor,
-  SleeveLength,
-  Pattern,
-  Fabric,
-  TopType,
-  BottomType,
-  AdditionalGarments,
-  Size,
-  Color,
-  Occasion,
-  TopFabric,
-  BottomFabric,
-  KurtaStyleType,
-  OrnamentationType,
-  Neck,
-  Trend,
-  PatternPrintType,
-  SleeveStyle,
-  DetailPlacement,
-  SurfaceStyling,
-  TopLength,
-  ListingStatus,
-} from '../enums/product.enums';
+import { Document, Types } from 'mongoose';
 
 export type ProductDocument = Product & Document;
 
@@ -32,8 +8,70 @@ export class ProductImage {
   publicId: string;
 }
 
+export class OtherImage {
+  type: string;
+  url: string;
+  publicId: string;
+}
+
+export class ProductMetadata {
+  key: string;
+  value: string;
+  type: string;
+}
+
+export class ShippingDimensions {
+  weightKg?: number;
+  lengthCm?: number;
+  breadthCm?: number;
+  heightCm?: number;
+}
+
+export class VariantPricing {
+  mrp: number;
+  sellingPrice: number;
+  costPrice?: number;
+  currency: string;
+}
+
+export class VariantInventorySnapshot {
+  stock: number;
+  reserved: number;
+  available: number;
+}
+
+export class ProductVariant {
+  _id: Types.ObjectId;
+  title: string;
+  sku: string;
+  barcode?: string;
+  color: string;
+  size: string;
+  hsn?: string;
+  pricing: VariantPricing;
+  inventory: VariantInventorySnapshot;
+  shipping: ShippingDimensions;
+  status: string;
+}
+
 @Schema({ timestamps: true })
 export class Product {
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'Department',
+    required: true,
+    index: true,
+  })
+  departmentId: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Category', required: true, index: true })
+  categoryId: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Brand', default: null, index: true })
+  brandId: Types.ObjectId | null;
+
+  @Prop({ type: Types.ObjectId, ref: 'TaxGuide', default: null })
+  taxGuideId: Types.ObjectId | null;
 
   @Prop({ required: true, trim: true, unique: true })
   sellerSkuId: string;
@@ -41,254 +79,144 @@ export class Product {
   @Prop({ trim: true })
   groupId?: string;
 
-  @Prop({
-    type: String,
-    enum: Object.values(ListingStatus),
-    default: ListingStatus.INACTIVE,
-  })
+  @Prop({ required: true, trim: true })
+  name: string;
+
+  @Prop({ trim: true })
+  styleCode?: string;
+
+  @Prop({ type: String, enum: ['Active', 'Inactive'], default: 'Inactive' })
   listingStatus: string;
 
-  @Prop({ required: true, min: 0 })
-  mrp: number;
+  @Prop({
+    type: {
+      isPublished: { type: Boolean, default: false },
+      isSearchable: { type: Boolean, default: true },
+      isFeatured: { type: Boolean, default: false },
+    },
+    _id: false,
+    default: () => ({
+      isPublished: false,
+      isSearchable: true,
+      isFeatured: false,
+    }),
+  })
+  visibility: {
+    isPublished: boolean;
+    isSearchable: boolean;
+    isFeatured: boolean;
+  };
 
-  @Prop({ required: true, min: 0 })
-  sellingPrice: number;
+  @Prop({ type: Number, min: 0, default: 0 }) totalStock: number;
+  @Prop({ type: Number, min: 0, default: 0 }) totalReserved: number;
+  @Prop({ type: Number, min: 0, default: 0 }) availableStock: number;
 
-  @Prop({ trim: true, default: 'e-cart' })
-  procurementType: string;
-
-  @Prop({ type: Number })
-  procurementSla?: number;
-
-  @Prop({ type: Number, min: 0, default: 0 })
-  stock: number;
-
-  @Prop({ trim: true })
-  shippingProvider?: string;
-
-  @Prop({ type: Number, min: 0, default: 0 })
-  localHandlingFee: number;
-
-  @Prop({ type: Number, min: 0, default: 0 })
-  zonalHandlingFee: number;
-
-  @Prop({ type: Number, min: 0, default: 0 })
-  nationalHandlingFee: number;
-
-  @Prop({ type: Number })
-  lengthCm?: number;
-
-  @Prop({ type: Number })
-  breadthCm?: number;
-
-  @Prop({ type: Number })
-  heightCm?: number;
-
-  @Prop({ type: Number })
-  weightKg?: number;
-
-  @Prop({ trim: true })
-  hsn?: string;
-
-  @Prop({ type: Number })
-  luxuryCess?: number;
-
-  @Prop({ trim: true, default: 'India' })
-  countryOfOrigin: string;
-
-  @Prop({ trim: true })
-  manufacturerDetails?: string;
-
-  @Prop({ trim: true })
-  packerDetails?: string;
-
-  @Prop({ trim: true })
-  importerDetails?: string;
-
-  @Prop({ trim: true })
-  taxCode?: string;
-
-  @Prop({ type: Number, min: 1, default: 1 })
-  minimumOrderQuantity: number;
-
-  @Prop({ required: true, trim: true })
-  brand: string;
-
-  @Prop({ type: [String], required: true })
-  itemsIncluded: string[];
-
-  @Prop({ required: true, enum: Object.values(IdealFor) })
-  idealFor: string;
-
-  @Prop({ required: true, enum: Object.values(SleeveLength) })
-  sleeveLength: string;
-
-  @Prop({ type: [String], required: true, enum: Object.values(Pattern) })
-  pattern: string[];
-
-  @Prop({ type: [String], required: true, enum: Object.values(Fabric) })
-  fabric: string[];
-
-  @Prop({ required: true, enum: Object.values(TopType) })
-  topType: string;
-
-  @Prop({ required: true, enum: Object.values(BottomType) })
-  bottomType: string;
-
-  @Prop({ enum: Object.values(AdditionalGarments) })
-  additionalGarments?: string;
-
-  @Prop({ required: true, enum: Object.values(Size) })
-  size: string;
-
-  @Prop({ trim: true, default: 'Regular' })
-  sizeMeasuringUnit: string;
-
-  @Prop({ required: true, trim: true })
-  styleCode: string;
-
-  @Prop({ type: [String], required: true, enum: Object.values(Color) })
-  color: string[];
-
-  @Prop({ type: [String] })
-  brandColor: string[];
+  @Prop({ type: Number, min: 1, default: 1 }) minimumOrderQuantity: number;
 
   @Prop({
-    type: { url: String, publicId: String },
+    type: { country: { type: String, default: 'India' } },
     _id: false,
+    default: () => ({ country: 'India' }),
   })
+  origin: { country: string };
+
+  @Prop({ type: { url: String, publicId: String }, _id: false })
   mainImage?: ProductImage;
 
   @Prop({
-    type: [{ url: String, publicId: String }],
+    type: [{ type: { type: String }, url: String, publicId: String }],
     _id: false,
     default: [],
   })
-  otherImages: ProductImage[];
+  otherImages: OtherImage[];
 
   @Prop({ type: { url: String, publicId: String }, _id: false })
   mainPaletteImage?: ProductImage;
 
-  @Prop({ type: [String], enum: Object.values(Occasion) })
-  occasion: string[];
+  @Prop({ trim: true }) shortDescription?: string;
+  @Prop({ trim: true }) description?: string;
+  @Prop({ type: [String], default: [] }) searchKeywords: string[];
+  @Prop({ type: [String], default: [] }) keyFeatures: string[];
+  @Prop({ trim: true }) videoUrl?: string;
 
-  @Prop({ type: [String], enum: Object.values(TopFabric) })
-  topFabric: string[];
+  @Prop({
+    type: {
+      metaTitle: String,
+      metaDescription: String,
+      metaKeywords: [String],
+    },
+    _id: false,
+    default: () => ({}),
+  })
+  seo: {
+    metaTitle?: string;
+    metaDescription?: string;
+    metaKeywords?: string[];
+  };
 
-  @Prop({ type: [String], enum: Object.values(BottomFabric) })
-  bottomFabric: string[];
+  @Prop({
+    type: [
+      { key: String, value: String, type: { type: String, default: 'TEXT' } },
+    ],
+    _id: false,
+    default: [],
+  })
+  metadata: ProductMetadata[];
 
-  @Prop({ enum: Object.values(KurtaStyleType) })
-  kurtaStyleType?: string;
+  @Prop({
+    type: [
+      {
+        title: String,
+        sku: { type: String, required: true },
+        barcode: String,
+        color: { type: String, required: true },
+        size: { type: String, required: true },
+        hsn: String,
+        status: {
+          type: String,
+          enum: ['ACTIVE', 'INACTIVE', 'OUT_OF_STOCK'],
+          default: 'ACTIVE',
+        },
+        pricing: {
+          mrp: { type: Number, required: true, min: 0 },
+          sellingPrice: { type: Number, required: true, min: 0 },
+          costPrice: { type: Number, min: 0 },
+          currency: { type: String, default: 'INR' },
+        },
+        inventory: {
+          stock: { type: Number, min: 0, default: 0 },
+          reserved: { type: Number, min: 0, default: 0 },
+          available: { type: Number, min: 0, default: 0 },
+        },
+        shipping: {
+          weightKg: { type: Number, min: 0 },
+          lengthCm: { type: Number, min: 0 },
+          breadthCm: { type: Number, min: 0 },
+          heightCm: { type: Number, min: 0 },
+        },
+      },
+    ],
+    default: [],
+  })
+  variants: ProductVariant[];
 
-  @Prop({ type: [String], enum: Object.values(OrnamentationType) })
-  ornamentationType: string[];
-
-  @Prop({ type: [String], enum: Object.values(Color) })
-  secondaryColor: string[];
-
-  @Prop({ type: [String] })
-  fabricCare: string[];
-
-  @Prop({ type: [String] })
-  liningMaterial: string[];
-
-  @Prop({ type: [String] })
-  knitType: string[];
-
-  @Prop({ enum: Object.values(Neck) })
-  neck?: string;
-
-  @Prop({ trim: true })
-  videoUrl?: string;
-
-  @Prop({ type: [String], enum: Object.values(Trend) })
-  trend: string[];
-
-  @Prop({ type: [String], enum: Object.values(PatternPrintType) })
-  patternPrintType: string[];
-
-  @Prop({ enum: Object.values(SleeveStyle) })
-  sleeveStyle?: string;
-
-  @Prop({ type: [String], enum: Object.values(DetailPlacement) })
-  detailPlacement: string[];
-
-  @Prop({ type: [String], enum: Object.values(SurfaceStyling) })
-  surfaceStyling: string[];
-
-  @Prop({ type: Boolean })
-  dupattalIncluded?: boolean;
-
-  @Prop({ trim: true })
-  netQuantity?: string;
-
-  @Prop({ type: Boolean })
-  coOrdSet?: boolean;
-
-  @Prop({ trim: true })
-  ean?: string;
-
-  @Prop({ trim: true })
-  eanMeasuringUnit?: string;
-
-  @Prop({ type: [String] })
-  otherDetails: string[];
-
-  @Prop({ trim: true })
-  description?: string;
-
-  @Prop({ type: [String] })
-  searchKeywords: string[];
-
-  @Prop({ type: [String] })
-  keyFeatures: string[];
-
-  @Prop({ enum: Object.values(TopLength) })
-  topLength?: string;
-
-  @Prop({ trim: true })
-  fit?: string;
-
-  @Prop({ type: [String] })
-  style: string[];
-
-  @Prop({ type: Boolean })
-  lining?: boolean;
-
-  @Prop({ type: [String] })
-  waistband: string[];
-
-  @Prop({ type: [String] })
-  design: string[];
-
-  @Prop({ default: false })
-  isDeleted: boolean;
+  @Prop({
+    type: {
+      isDeleted: { type: Boolean, default: false },
+      isBlocked: { type: Boolean, default: false },
+      isDraft: { type: Boolean, default: false },
+    },
+    _id: false,
+    default: () => ({ isDeleted: false, isBlocked: false, isDraft: false }),
+  })
+  flags: { isDeleted: boolean; isBlocked: boolean; isDraft: boolean };
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
 
-export {
-  IdealFor,
-  SleeveLength,
-  Pattern,
-  Fabric,
-  TopType,
-  BottomType,
-  AdditionalGarments,
-  Size,
-  Color,
-  Occasion,
-  TopFabric,
-  BottomFabric,
-  KurtaStyleType,
-  OrnamentationType,
-  Neck,
-  Trend,
-  PatternPrintType,
-  SleeveStyle,
-  DetailPlacement,
-  SurfaceStyling,
-  TopLength,
-  ListingStatus,
-};
+ProductSchema.index({ sellerSkuId: 1 });
+ProductSchema.index({ departmentId: 1, categoryId: 1 });
+ProductSchema.index({ 'flags.isDeleted': 1, listingStatus: 1 });
+ProductSchema.index({ brandId: 1 });
+ProductSchema.index({ 'visibility.isFeatured': 1 });
+ProductSchema.index({ 'variants.sku': 1 }, { sparse: true });

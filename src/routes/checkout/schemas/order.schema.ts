@@ -17,13 +17,23 @@ export class OrderItem {
   @Prop({ type: Types.ObjectId, ref: 'Product', required: true })
   productId: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, required: true })
+  variantId: Types.ObjectId;
+
   @Prop({ required: true }) quantity:        number;
   @Prop({ required: true }) priceAtOrder:    number;
   @Prop({ required: true }) mrpAtOrder:      number;
   @Prop({ required: true }) discountAtOrder: number;
-  @Prop({ required: true }) itemTotal:       number;
+  @Prop({ required: true }) itemTotal:       number;   
+
+  @Prop({ required: true, default: 0 }) taxRateAtOrder: number;
+  
+  @Prop({ required: true, default: 0 }) itemTax: number;
+
   @Prop({ trim: true })     productName:     string;
   @Prop({ trim: true })     sellerSkuId:     string;
+  @Prop({ trim: true })     variantSku:      string;
+  @Prop({ trim: true })     variantTitle:    string;
   @Prop({ trim: true })     size:            string;
   @Prop({ type: [String] }) color:           string[];
   @Prop({ trim: true })     mainImageUrl:    string;
