@@ -9,7 +9,7 @@ import {
 import { CheckoutService }                from './checkout.service';
 import { CheckoutController }             from './checkout.controller';
 import { ShippingConfigModule }           from '../shipping-config/shipping-config.module';
-// import { ShipmentModule }              from '../shipment/shipment.module';
+import { ShipmentModule }                 from '../shipment/shipment.module';
 
 @Module({
   imports: [
@@ -19,7 +19,7 @@ import { ShippingConfigModule }           from '../shipping-config/shipping-conf
       { name: CustomerAddress.name, schema: CustomerAddressSchema },
     ]),
     ShippingConfigModule, 
-    // ShipmentModule,
+    ShipmentModule,
   ],
   controllers: [CheckoutController],
   providers:   [CheckoutService],

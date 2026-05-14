@@ -17,7 +17,7 @@ import {
 } from '../checkout/schemas/order.schema';
 import { cashfreeConfig } from '../../config/cashfree.config';
 import { paginate, PaginatedResult, PaginationDto } from '../../common/pagination';
-// import { ShipmentService } from '../shipment/shipment.service';
+import { ShipmentService } from '../shipment/shipment.service';
 
 @Injectable()
 export class PaymentService {
@@ -28,7 +28,7 @@ export class PaymentService {
     private readonly paymentModel: Model<PaymentDocument>,
     @InjectModel(Order.name)
     private readonly orderModel: Model<OrderDocument>,
-    // private readonly shipmentService: ShipmentService,
+    private readonly shipmentService: ShipmentService,
   ) {}
 
   private get cfHeaders() {
@@ -362,19 +362,14 @@ export class PaymentService {
     if (!order) throw new NotFoundException('Order not found while marking as paid');
     this.logger.log(` Order ${order.orderNumber} → PAID + CONFIRMED`);
 
-  
-    // try {
-    //   await this.shipmentService.createShipment(orderId);
-
-    //   console.log("shipmer mark ad paid ----------------------------------------------------------->",order)
-    //   this.logger.log(
-    //     ` Online shipment created for order ${order.orderNumber}`,
-    //   );
-    // } catch (err) {
-    //   this.logger.warn(
-    //     `Online shipment creation failed for ${order.orderNumber}: ${(err as Error).message}`,
-    //   );
-    // }
+    try {
+      await this.shipmentService.createShipment(orderId);
+      this.logger.log(` Online shipment created for order ${order.orderNumber}`);
+    } catch (err) {
+      this.logger.warn(
+        `Online shipment creation failed for ${order.orderNumber}: ${(err as Error).message}`,
+      );
+    }
 
     return order;
   }

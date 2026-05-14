@@ -4,7 +4,7 @@ import { Payment, PaymentSchema } from './schemas/payment.schema';
 import { Order, OrderSchema } from '../checkout/schemas/order.schema';
 import { PaymentService } from './payment.service';
 import { PaymentController } from './payment.controller';
-// import { ShipmentModule } from '../shipment/shipment.module';
+import { ShipmentModule } from '../shipment/shipment.module';
 
 @Module({
   imports: [
@@ -12,7 +12,7 @@ import { PaymentController } from './payment.controller';
       { name: Payment.name, schema: PaymentSchema },
       { name: Order.name,   schema: OrderSchema },
     ]),
-    // ShipmentModule,   
+    ShipmentModule,   
   ],
   controllers: [PaymentController],
   providers:   [PaymentService],

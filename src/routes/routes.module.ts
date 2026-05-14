@@ -6,7 +6,7 @@ import { CustomerAddressModule } from './customer-address/customer-address.modul
 import { CheckoutModule } from './checkout/checkout.module';
 import { PaymentModule } from './payment/payment.module';
 import { AdminOrdersModule } from './admin-orders/admin-orders.module';
-// import { ShipmentModule } from './shipment/shipment.module';
+import { ShipmentModule } from './shipment/shipment.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { DepartmentModule } from './department/department.module';
 import { CategoryModule }   from './category/category.module';
@@ -24,7 +24,7 @@ import { ShippingConfigModule } from './shipping-config/shipping-config.module';
     CheckoutModule,
     PaymentModule,
     AdminOrdersModule,
-    // ShipmentModule,
+    ShipmentModule,
     WishlistModule,
     DepartmentModule,
     CategoryModule,

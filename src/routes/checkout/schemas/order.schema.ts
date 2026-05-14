@@ -81,6 +81,9 @@ export class Order {
   mobile: string;
 
   @Prop({ trim: true, default: null })
+  alternatePhone: string | null;
+
+  @Prop({ trim: true, default: null })
   email: string | null;
 
   // ── Totals (all snapshotted at time of order) ─────────────────────────────

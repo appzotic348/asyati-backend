@@ -89,6 +89,18 @@ export class CheckoutDto {
   @Matches(/^[6-9]\d{9}$/, { message: 'mobile must be a valid 10-digit Indian number' })
   mobile: string;
 
+  @ApiPropertyOptional({
+    example: '9123456780',
+    description:
+      'Alternate contact number for the consignee. ' +
+      'Required by eKart for shipment creation (10-digit Indian number). ' +
+      'If not provided, the primary mobile is used.',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[6-9]\d{9}$/, { message: 'alternatePhone must be a valid 10-digit Indian number' })
+  alternatePhone?: string;
+
   @ApiPropertyOptional({ example: 'virat@gmail.com' })
   @IsOptional()
   @IsEmail()

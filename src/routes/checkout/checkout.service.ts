@@ -1,7 +1,7 @@
 import {
   BadRequestException,
   Injectable,
-  // Logger,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -21,11 +21,11 @@ import { CheckoutDto, InlineAddressDto, OrderFilterDto } from './dto/checkout.dt
 import { computeTotals } from '../../common/utils/order-totals.util';
 import { paginate, PaginatedResult, PaginationDto } from '../../common/pagination';
 import { ShippingConfigService } from '../shipping-config/shipping-config.service';
-// import { ShipmentService } from '../shipment/shipment.service';
+import { ShipmentService } from '../shipment/shipment.service';
 
 @Injectable()
 export class CheckoutService {
-  // private readonly logger = new Logger(CheckoutService.name);
+  private readonly logger = new Logger(CheckoutService.name);
 
   constructor(
     @InjectModel(Order.name)
@@ -35,7 +35,7 @@ export class CheckoutService {
     @InjectModel(CustomerAddress.name)
     private readonly addressModel: Model<CustomerAddressDocument>,
     private readonly shippingConfigService: ShippingConfigService,
-    // private readonly shipmentService: ShipmentService,
+    private readonly shipmentService: ShipmentService,
   ) {}
 
   // ─── PLACE ORDER ──────────────────────────────────────────────────────────
@@ -104,6 +104,7 @@ export class CheckoutService {
       shippingAddress,
       billingAddress,
       mobile:          dto.mobile,
+      alternatePhone:  dto.alternatePhone ?? null,
       email:           dto.email ?? null,
       mrpTotal:        totals.mrpTotal,
       subTotal:        totals.subTotal,
@@ -131,22 +132,21 @@ export class CheckoutService {
       },
     );
 
-    // if (dto.paymentMethod === 'Cash') {
-    //   try {
-    //     await this.shipmentService.createShipment(
-    //       (order._id as any).toString(),
-    //     );
-    //     this.logger.log(
-    //       ` COD shipment created for order ${order.orderNumber}`,
-    //     );
-    //   } catch (err) {
-    //     // Non-fatal — order is placed successfully.
-    //     // Shipment saved as Pending, admin can retry via POST /admin/shipments/:orderId/retry
-    //     this.logger.warn(
-    //       `COD shipment creation failed for ${order.orderNumber}: ${(err as Error).message}`,
-    //     );
-    //   }
-    // }
+    if (dto.paymentMethod === 'Cash') {
+      try {
+        await this.shipmentService.createShipment(
+          (order._id as any).toString(),
+        );
+        console.log("codordershipment---------------------------------->",order)
+        this.logger.log(` COD shipment created for order ${order.orderNumber}`);
+      } catch (err) {
+        // Non-fatal — order is placed successfully even if shipment creation fails.
+        // Shipment is saved as Pending; admin can retry via POST /admin/shipments/:orderId/retry
+        this.logger.warn(
+          `COD shipment creation failed for ${order.orderNumber}: ${(err as Error).message}`,
+        );
+      }
+    }
 
     return order;
   }
