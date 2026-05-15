@@ -24,19 +24,18 @@ export class OrderItem {
   @Prop({ required: true }) priceAtOrder:    number;
   @Prop({ required: true }) mrpAtOrder:      number;
   @Prop({ required: true }) discountAtOrder: number;
-  @Prop({ required: true }) itemTotal:       number;   
+  @Prop({ required: true }) itemTotal:       number;
 
   @Prop({ required: true, default: 0 }) taxRateAtOrder: number;
-  
-  @Prop({ required: true, default: 0 }) itemTax: number;
+  @Prop({ required: true, default: 0 }) itemTax:        number;
 
-  @Prop({ trim: true })     productName:     string;
-  @Prop({ trim: true })     sellerSkuId:     string;
-  @Prop({ trim: true })     variantSku:      string;
-  @Prop({ trim: true })     variantTitle:    string;
-  @Prop({ trim: true })     size:            string;
-  @Prop({ type: [String] }) color:           string[];
-  @Prop({ trim: true })     mainImageUrl:    string;
+  @Prop({ trim: true }) productName:  string;
+  @Prop({ trim: true }) sellerSkuId:  string;
+  @Prop({ trim: true }) variantSku:   string;
+  @Prop({ trim: true }) variantTitle: string;
+  @Prop({ trim: true }) size:         string;
+  @Prop({ type: [String] }) color:    string[];
+  @Prop({ trim: true }) mainImageUrl: string;
 }
 
 export enum OrderStatus {
@@ -86,7 +85,7 @@ export class Order {
   @Prop({ trim: true, default: null })
   email: string | null;
 
-  // ── Totals (all snapshotted at time of order) ─────────────────────────────
+  // ── Totals ────────────────────────────────────────────────────────────────
   @Prop({ required: true }) mrpTotal:        number;
   @Prop({ required: true }) subTotal:        number;
   @Prop({ required: true }) totalDiscount:   number;
@@ -95,6 +94,20 @@ export class Order {
   @Prop({ required: true }) platformFee:     number;
   @Prop({ required: true }) tax:             number;
   @Prop({ required: true }) orderTotal:      number;
+
+  // ── Coupon ────────────────────────────────────────────────────────────────
+
+  /** The code the customer applied (stored for display in order history) */
+  @Prop({ trim: true, default: null })
+  couponCode: string | null;
+
+  /** Reference to the Coupon document */
+  @Prop({ type: Types.ObjectId, ref: 'Coupon', default: null })
+  couponId: Types.ObjectId | null;
+
+  /** Actual INR amount discounted via coupon (already subtracted from orderTotal) */
+  @Prop({ default: 0 })
+  couponDiscount: number;
 
   // ── Status ────────────────────────────────────────────────────────────────
   @Prop({
@@ -120,3 +133,4 @@ export class Order {
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
 OrderSchema.index({ customerId: 1, createdAt: -1 });
+OrderSchema.index({ couponId: 1 }, { sparse: true });

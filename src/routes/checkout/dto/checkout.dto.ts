@@ -1,8 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail, IsEnum, IsMongoId, IsNotEmpty,
-  IsOptional, IsString, Matches, ValidateIf,
-  ValidateNested,
+  IsOptional, IsString, Matches, ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationDto } from '../../../common/pagination';
@@ -44,7 +43,7 @@ export class InlineAddressDto {
 // ── Main checkout DTO ──────────────────────────────────────────────────────
 
 export class CheckoutDto {
-  // ── Shipping — provide EITHER addressId OR inline address ─────────────────
+  // ── Shipping ──────────────────────────────────────────────────────────────
 
   @ApiPropertyOptional({
     example: '665f1a2b3c4d5e6f7a8b9c0d',
@@ -63,7 +62,7 @@ export class CheckoutDto {
   @Type(() => InlineAddressDto)
   shippingAddress?: InlineAddressDto;
 
-  // ── Billing — provide EITHER addressId OR inline address ──────────────────
+  // ── Billing ───────────────────────────────────────────────────────────────
 
   @ApiPropertyOptional({
     example: '665f1a2b3c4d5e6f7a8b9c0d',
@@ -89,13 +88,7 @@ export class CheckoutDto {
   @Matches(/^[6-9]\d{9}$/, { message: 'mobile must be a valid 10-digit Indian number' })
   mobile: string;
 
-  @ApiPropertyOptional({
-    example: '9123456780',
-    description:
-      'Alternate contact number for the consignee. ' +
-      'Required by eKart for shipment creation (10-digit Indian number). ' +
-      'If not provided, the primary mobile is used.',
-  })
+  @ApiPropertyOptional({ example: '9123456780' })
   @IsOptional()
   @IsString()
   @Matches(/^[6-9]\d{9}$/, { message: 'alternatePhone must be a valid 10-digit Indian number' })
@@ -115,49 +108,41 @@ export class CheckoutDto {
   })
   @IsEnum(['Cash', 'Online'], { message: 'paymentMethod must be Cash or Online' })
   paymentMethod: 'Cash' | 'Online';
+
+  // ── Coupon ────────────────────────────────────────────────────────────────
+
+  @ApiPropertyOptional({
+    example: 'SAVE20',
+    description:
+      'Optional coupon code to apply at checkout.\n\n' +
+      'The server validates the coupon against the cart contents and customer history. ' +
+      'Use `POST /customer/coupons/validate` first to preview the discount before placing the order.',
+  })
+  @IsOptional()
+  @IsString()
+  couponCode?: string;
 }
 
+// ── Order filter ──────────────────────────────────────────────────────────────
+
 export class OrderFilterDto extends PaginationDto {
-  @ApiPropertyOptional({
-    enum:        OrderStatus,
-    example:     OrderStatus.CONFIRMED,
-    description: 'Filter by order status.',
-  })
-  @IsOptional()
-  @IsEnum(OrderStatus)
+  @ApiPropertyOptional({ enum: OrderStatus, example: OrderStatus.CONFIRMED })
+  @IsOptional() @IsEnum(OrderStatus)
   orderStatus?: string;
 
-  @ApiPropertyOptional({
-    enum:        PaymentStatus,
-    example:     PaymentStatus.PAID,
-    description: 'Filter by payment status.',
-  })
-  @IsOptional()
-  @IsEnum(PaymentStatus)
+  @ApiPropertyOptional({ enum: PaymentStatus, example: PaymentStatus.PAID })
+  @IsOptional() @IsEnum(PaymentStatus)
   paymentStatus?: string;
 
-  @ApiPropertyOptional({
-    enum:        PaymentMethod,
-    example:     PaymentMethod.ONLINE,
-    description: 'Filter by payment method.',
-  })
-  @IsOptional()
-  @IsEnum(PaymentMethod)
+  @ApiPropertyOptional({ enum: PaymentMethod, example: PaymentMethod.ONLINE })
+  @IsOptional() @IsEnum(PaymentMethod)
   paymentMethod?: string;
 
-  @ApiPropertyOptional({
-    example:     '2024-01-01',
-    description: 'Filter orders from this date (inclusive). Format: YYYY-MM-DD',
-  })
-  @IsOptional()
-  @IsString()
+  @ApiPropertyOptional({ example: '2024-01-01', description: 'YYYY-MM-DD' })
+  @IsOptional() @IsString()
   fromDate?: string;
 
-  @ApiPropertyOptional({
-    example:     '2024-12-31',
-    description: 'Filter orders up to this date (inclusive). Format: YYYY-MM-DD',
-  })
-  @IsOptional()
-  @IsString()
+  @ApiPropertyOptional({ example: '2024-12-31', description: 'YYYY-MM-DD' })
+  @IsOptional() @IsString()
   toDate?: string;
 }

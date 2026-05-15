@@ -22,6 +22,7 @@ import { computeTotals } from '../../common/utils/order-totals.util';
 import { paginate, PaginatedResult, PaginationDto } from '../../common/pagination';
 import { ShippingConfigService } from '../shipping-config/shipping-config.service';
 import { ShipmentService } from '../shipment/shipment.service';
+import { CouponService } from '../coupon/coupon.service'; 
 
 @Injectable()
 export class CheckoutService {
@@ -36,6 +37,7 @@ export class CheckoutService {
     private readonly addressModel: Model<CustomerAddressDocument>,
     private readonly shippingConfigService: ShippingConfigService,
     private readonly shipmentService: ShipmentService,
+    private readonly couponService: CouponService,
   ) {}
 
   // ─── PLACE ORDER ──────────────────────────────────────────────────────────
@@ -52,6 +54,20 @@ export class CheckoutService {
     });
     if (!cart || cart.items.length === 0)
       throw new BadRequestException('Your cart is empty');
+
+    let couponDiscount = 0;
+    let couponId:   string | null = null;
+    let couponCode: string | null = null;
+
+    if (dto.couponCode?.trim()) {
+      const validation = await this.couponService.validateCoupon(
+        { code: dto.couponCode.trim() },
+        customerId,
+      );
+      couponDiscount = validation.discountAmount;
+      couponId       = (validation.coupon._id as any).toString();
+      couponCode     = validation.coupon.code;
+    }
 
     const [shippingAddress, billingAddress] = await Promise.all([
       this.resolveAddress(customerId, dto.shippingAddressId, dto.shippingAddress, 'shipping'),
@@ -95,6 +111,8 @@ export class CheckoutService {
       shippingConfig,
     );
 
+    const finalOrderTotal = Math.max(0, totals.orderTotal - couponDiscount);
+
     const orderNumber = await this.generateOrderNumber();
 
     const order = new this.orderModel({
@@ -105,7 +123,7 @@ export class CheckoutService {
       billingAddress,
       mobile:          dto.mobile,
       alternatePhone:  dto.alternatePhone ?? null,
-      email:           dto.email ?? null,
+      email:           dto.email          ?? null,
       mrpTotal:        totals.mrpTotal,
       subTotal:        totals.subTotal,
       totalDiscount:   totals.totalDiscount,
@@ -113,11 +131,24 @@ export class CheckoutService {
       shippingCharge:  totals.shippingCharge,
       platformFee:     totals.platformFee,
       tax:             totals.tax,
-      orderTotal:      totals.orderTotal,
+      orderTotal:      finalOrderTotal,
+      couponCode,                            
+      couponId:        couponId ? new Types.ObjectId(couponId) : null,
+      couponDiscount,      
       paymentMethod:   dto.paymentMethod,
     });
 
     await order.save();
+
+    if (couponId) {
+      await this.couponService.recordUsage(
+        couponId,
+        customerId,
+        (order._id as any).toString(),
+        couponDiscount,
+        finalOrderTotal,
+      );
+    }
 
     await this.cartModel.findOneAndUpdate(
       { customerId: new Types.ObjectId(customerId) },
@@ -140,8 +171,6 @@ export class CheckoutService {
         console.log("codordershipment---------------------------------->",order)
         this.logger.log(` COD shipment created for order ${order.orderNumber}`);
       } catch (err) {
-        // Non-fatal — order is placed successfully even if shipment creation fails.
-        // Shipment is saved as Pending; admin can retry via POST /admin/shipments/:orderId/retry
         this.logger.warn(
           `COD shipment creation failed for ${order.orderNumber}: ${(err as Error).message}`,
         );

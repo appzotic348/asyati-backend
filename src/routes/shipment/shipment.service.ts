@@ -212,11 +212,20 @@ console.log("totalweightkg------------------->",totalWeightKg)
       .map((i) => `${i.productName ?? i.sellerSkuId} x${i.quantity}`)
       .join(', ');
 
-    const itemsTax = order.items.reduce(
+    const rawItemsTax = order.items.reduce(
       (s, i) => s + ((i as any).itemTax ?? 0),
       0,
     );
-    const taxValue      = parseFloat(itemsTax.toFixed(2));
+
+    const couponDiscount = (order as any).couponDiscount ?? 0;
+    const originalTotal  =
+      order.subTotal +
+      order.shippingCharge +
+      order.platformFee +
+      order.tax;
+    const discountRatio  = originalTotal > 0 ? order.orderTotal / originalTotal : 1;
+
+    const taxValue      = parseFloat((rawItemsTax * discountRatio).toFixed(2));
     const taxableAmount = parseFloat((order.orderTotal - taxValue).toFixed(2));
 
     const consigneePhone = toPhoneInt(order.mobile);

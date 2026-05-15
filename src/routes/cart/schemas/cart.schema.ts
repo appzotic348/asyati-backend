@@ -14,22 +14,25 @@ export class CartItem {
   quantity: number;
 
   @Prop({ required: true })
-  priceAtAdd: number;       
+  priceAtAdd: number;
 
   @Prop({ required: true })
-  mrpAtAdd: number;        
+  mrpAtAdd: number;
 
   @Prop({ required: true })
-  discountAtAdd: number;   
+  discountAtAdd: number;
 
   @Prop({ required: true })
-  discountPctAtAdd: number; 
+  discountPctAtAdd: number;
 
   @Prop({ trim: true })
-  currency: string;         
+  currency: string;
 
   @Prop({ default: 0 })
   taxRate: number;
+
+  @Prop({ default: 0 })
+  itemTax: number;
 
   @Prop({ trim: true })
   productName: string;
@@ -38,10 +41,10 @@ export class CartItem {
   sellerSkuId: string;
 
   @Prop({ trim: true })
-  variantSku: string;       
+  variantSku: string;
 
   @Prop({ trim: true })
-  variantTitle: string;    
+  variantTitle: string;
 
   @Prop({ trim: true })
   size: string;
@@ -85,7 +88,7 @@ export class Cart {
   @Prop({ default: 0 }) discountPercent: number;
   @Prop({ default: 0 }) shippingCharge:  number;
   @Prop({ default: 0 }) platformFee:     number;
-  @Prop({ default: 0 }) tax:             number;
+  @Prop({ default: 0 }) tax:             number;   
   @Prop({ default: 0 }) orderTotal:      number;
   @Prop({ default: 0 }) itemCount:       number;
   @Prop({ default: 0 }) totalQuantity:   number;

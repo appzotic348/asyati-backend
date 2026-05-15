@@ -61,7 +61,7 @@ export class CartService {
         'flags.isDeleted': false,
         listingStatus:    'Active',
       })
-      .populate('taxGuideId', 'taxRate');   
+      .populate('taxGuideId', 'taxRate');
 
     if (!product)
       throw new NotFoundException('Product not found or not available');
@@ -92,10 +92,11 @@ export class CartService {
     availableStock: number,
     taxRate: number,
   ): CartItem {
-    const mrp          = variant.pricing.mrp          as number;
-    const sellingPrice = variant.pricing.sellingPrice  as number;
+    const mrp          = variant.pricing.mrp         as number;
+    const sellingPrice = variant.pricing.sellingPrice as number;
     const discount     = mrp - sellingPrice;
     const discountPct  = mrp > 0 ? Math.round((discount / mrp) * 100) : 0;
+    const itemTax = Math.round(sellingPrice * quantity * taxRate * 100) / 100;
 
     return {
       productId:           product._id as Types.ObjectId,
@@ -107,6 +108,7 @@ export class CartService {
       discountPctAtAdd:    discountPct,
       currency:            variant.pricing.currency ?? 'INR',
       taxRate,
+      itemTax,                            
       productName:         product.name,
       sellerSkuId:         product.sellerSkuId,
       variantSku:          variant.sku   ?? '',
@@ -124,21 +126,25 @@ export class CartService {
 
   private async recalcTotals(cart: CartDocument): Promise<void> {
     for (const item of cart.items) {
-      item.itemMrpTotal      = item.mrpAtAdd     * item.quantity;
-      item.itemSellingTotal  = item.priceAtAdd   * item.quantity;
+      item.itemMrpTotal      = item.mrpAtAdd      * item.quantity;
+      item.itemSellingTotal  = item.priceAtAdd    * item.quantity;
       item.itemDiscountTotal = item.discountAtAdd * item.quantity;
+
+      item.itemTax = Math.round(
+        item.priceAtAdd * item.quantity * (item.taxRate ?? 0) * 100,
+      ) / 100;
     }
 
     const shippingConfig = await this.shippingConfigService.getConfig();
-
     const totals         = computeTotals(cart.items, shippingConfig);
+
     cart.mrpTotal        = totals.mrpTotal;
     cart.subTotal        = totals.subTotal;
     cart.totalDiscount   = totals.totalDiscount;
     cart.discountPercent = totals.discountPercent;
     cart.shippingCharge  = totals.shippingCharge;
     cart.platformFee     = totals.platformFee;
-    cart.tax             = totals.tax;
+    cart.tax             = totals.tax;       
     cart.orderTotal      = totals.orderTotal;
     cart.itemCount       = cart.items.length;
     cart.totalQuantity   = cart.items.reduce((s, i) => s + i.quantity, 0);

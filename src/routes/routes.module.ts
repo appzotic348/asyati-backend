@@ -14,6 +14,9 @@ import { TaxGuideModule }   from './tax-guide/tax-guide.module';
 import { InventoryModule }  from './inventory/inventory.module';
 import { BrandModule } from './brand/brand.module';
 import { ShippingConfigModule } from './shipping-config/shipping-config.module';
+import { CouponModule }    from './coupon/coupon.module';
+import { PromotionModule } from './promotional/promotion.module';
+import { ReviewModule }    from './review/review.module';
 
 @Module({
   imports: [
@@ -32,6 +35,9 @@ import { ShippingConfigModule } from './shipping-config/shipping-config.module';
     InventoryModule,
     BrandModule,
     ShippingConfigModule,
+    CouponModule,
+    PromotionModule,
+    ReviewModule,
   ],
 })
 export class RoutesModule {}

@@ -10,6 +10,7 @@ import { CheckoutService }                from './checkout.service';
 import { CheckoutController }             from './checkout.controller';
 import { ShippingConfigModule }           from '../shipping-config/shipping-config.module';
 import { ShipmentModule }                 from '../shipment/shipment.module';
+import { CouponModule }                   from '../coupon/coupon.module'; // ← NEW
 
 @Module({
   imports: [
@@ -18,8 +19,9 @@ import { ShipmentModule }                 from '../shipment/shipment.module';
       { name: Cart.name,            schema: CartSchema },
       { name: CustomerAddress.name, schema: CustomerAddressSchema },
     ]),
-    ShippingConfigModule, 
+    ShippingConfigModule,
     ShipmentModule,
+    CouponModule, 
   ],
   controllers: [CheckoutController],
   providers:   [CheckoutService],
